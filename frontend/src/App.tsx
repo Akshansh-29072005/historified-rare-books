@@ -5,6 +5,7 @@ import { Home } from './pages/Home';
 import { BookDetail } from './pages/BookDetail';
 import { MyBooks } from './pages/MyBooks';
 import { Reader } from './pages/Reader';
+import { SampleReader } from './pages/SampleReader';
 import { Admin } from './pages/Admin';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsConditions } from './pages/TermsConditions';
@@ -43,6 +44,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/book/:id" element={<BookDetail />} />
+          <Route path="/read-sample/:id" element={<SampleReader />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsConditions />} />
           <Route path="/refunds" element={<RefundPolicy />} />
@@ -74,9 +76,10 @@ function AppRoutes() {
         </Routes>
       </div>
       
-      {/* Footer - except on reader page */}
+      {/* Footer - except on reader pages */}
       <Routes>
         <Route path="/read/:id" element={null} />
+        <Route path="/read-sample/:id" element={null} />
         <Route path="*" element={
           <footer className="border-t border-cream-200 bg-cream-100 mt-auto">
             <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-6">

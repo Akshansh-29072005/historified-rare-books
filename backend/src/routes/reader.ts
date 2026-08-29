@@ -3,15 +3,46 @@ import { Bindings, User } from '../types'
 import { authMiddleware } from '../middleware/auth'
 
 type Variables = {
-  user: User
+  user?: User
 }
 
 const reader = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
+// Public route for reading 5-page sample stream
+reader.get('/:bookId/sample-pdf', async (c) => {
+  const bookId = c.req.param('bookId')
+
+  const book = await c.env.DB.prepare('SELECT pdf_r2_key FROM books WHERE id = ?').bind(bookId).first<{ pdf_r2_key: string }>()
+  
+  if (!book || !book.pdf_r2_key) {
+    return c.json({ error: 'PDF not found for this book' }, 404)
+  }
+
+  const object = await c.env.R2_BUCKET.get(book.pdf_r2_key)
+
+  if (!object) {
+    return c.json({ error: 'PDF file not found in storage' }, 404)
+  }
+
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  headers.set('content-type', 'application/pdf')
+
+  return new Response(object.body, {
+    headers
+  })
+})
+
+// Protected routes require authentication
 reader.use('*', authMiddleware)
 
 reader.get('/:bookId/pdf', async (c) => {
   const user = c.get('user')
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
   const bookId = c.req.param('bookId')
 
   // Check purchase status
@@ -47,6 +78,10 @@ reader.get('/:bookId/pdf', async (c) => {
 
 reader.get('/:bookId/progress', async (c) => {
   const user = c.get('user')
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
   const bookId = c.req.param('bookId')
 
   try {
@@ -66,6 +101,10 @@ reader.get('/:bookId/progress', async (c) => {
 
 reader.put('/:bookId/progress', async (c) => {
   const user = c.get('user')
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
   const bookId = c.req.param('bookId')
   const { last_read_page, bookmarks } = await c.req.json()
 
