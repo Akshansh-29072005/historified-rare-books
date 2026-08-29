@@ -6,10 +6,9 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Setup pdf.js worker with Vite bundled ES module worker
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Setup pdf.js worker with standard unpkg mjs worker
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
@@ -25,9 +24,19 @@ export function Reader() {
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [pageWidth, setPageWidth] = useState<number>(Math.min(window.innerWidth - 48, 800));
   
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Responsive page width
+  useEffect(() => {
+    const handleResize = () => {
+      setPageWidth(Math.min(window.innerWidth - 48, 800));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Initial fetch with Auth token
   useEffect(() => {
@@ -197,6 +206,23 @@ export function Reader() {
     );
   }
 
+  if (errorMsg) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-cream-50 p-6">
+        <div className="text-center p-8 bg-cream-100 border border-cream-200 rounded-lg max-w-md">
+          <h2 className="font-serif text-xl font-semibold text-brown-900 mb-2">Unable to Open Reader</h2>
+          <p className="text-brown-500 text-sm mb-6">{errorMsg}</p>
+          <button 
+            onClick={() => navigate(`/book/${id}`)}
+            className="bg-brown-900 text-cream-50 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer"
+          >
+            Return to Book Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -223,37 +249,29 @@ export function Reader() {
 
       {/* PDF Viewer */}
       <div className="h-full w-full flex items-center justify-center overflow-auto p-4 md:p-12 pb-24">
-        {pdfUrl ? (
+        {pdfUrl && (
           <Document
             file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
+            onLoadError={(err) => setErrorMsg(err.message || 'Error parsing PDF file')}
+            onSourceError={(err) => setErrorMsg(err.message || 'Error loading PDF stream')}
             className="flex flex-col items-center max-w-full"
             loading={
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
-                <p className="text-brown-500 text-xs font-serif italic">Preparing pages...</p>
+                <p className="text-brown-500 text-xs font-serif italic">Rendering pages...</p>
               </div>
             }
           >
             <Page 
               pageNumber={pageNumber} 
-              className="shadow-xl"
+              width={pageWidth}
+              className="shadow-xl rounded-sm overflow-hidden"
               renderTextLayer={false}
               renderAnnotationLayer={false}
               devicePixelRatio={Math.min(2, window.devicePixelRatio)}
             />
           </Document>
-        ) : (
-          <div className="text-center p-8 bg-cream-100 border border-cream-200 rounded-lg max-w-md">
-            <h2 className="font-serif text-xl font-semibold text-brown-900 mb-2">Unable to Open Reader</h2>
-            <p className="text-brown-500 text-sm mb-6">{errorMsg || 'Purchase required to read this book.'}</p>
-            <button 
-              onClick={() => navigate(`/book/${id}`)}
-              className="bg-brown-900 text-cream-50 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer"
-            >
-              Return to Book Page
-            </button>
-          </div>
         )}
       </div>
 
