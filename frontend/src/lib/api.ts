@@ -1,6 +1,6 @@
 import { auth } from '../config/firebase';
 
-const BASE_URL = 'http://localhost:8787/api';
+const BASE_URL = 'https://backend.akshanshkhairwar2.workers.dev/api';
 
 async function getHeaders() {
   const headers: Record<string, string> = {
