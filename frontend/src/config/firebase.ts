@@ -2,12 +2,13 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+  apiKey: 'AIzaSyDbb1anHP4MdrVxduqqhvgpKjhg1ql1M84',
+  authDomain: 'historified-rare-books.firebaseapp.com',
+  projectId: 'historified-rare-books',
+  storageBucket: 'historified-rare-books.firebasestorage.app',
+  messagingSenderId: '940530617921',
+  appId: '1:940530617921:web:53fe89c418e9a4565e00c0',
+  measurementId: "G-F1T1R1H7YQ"
 };
 
 const app = initializeApp(firebaseConfig);

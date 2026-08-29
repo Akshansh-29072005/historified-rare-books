@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BookCard } from '../components/BookCard';
+import { api } from '../lib/api';
 
 export function Home() {
   const [books, setBooks] = useState<any[]>([]);
@@ -7,24 +8,14 @@ export function Home() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    // In a real app, we'd fetch from API: api.get('/books')
-    // For now, using placeholder data to demonstrate
     const fetchBooks = async () => {
       try {
-        // const data = await api.get('/books');
-        // setBooks(data.books);
-        
-        // Mock data fallback
-        setBooks([
-          { id: '1', title: 'The Art of Silence', author: 'Priya Sharma', price: 499, gradient: 'bg-gradient-to-br from-amber-200 to-orange-100' },
-          { id: '2', title: 'Letters to the Ganges', author: 'Raghav Iyer', price: 349, gradient: 'bg-gradient-to-br from-rose-200 to-pink-100' },
-          { id: '3', title: 'Whispers of the Banyan', author: 'Ananya Devi', price: 599, gradient: 'bg-gradient-to-br from-emerald-200 to-teal-100' },
-          { id: '4', title: 'The Forgotten Scripts', author: 'Karthik Nair', price: 279, gradient: 'bg-gradient-to-br from-sky-200 to-blue-100' },
-          { id: '5', title: 'A Monsoon in December', author: 'Meera Joshi', price: 399, gradient: 'bg-gradient-to-br from-violet-200 to-purple-100' },
-          { id: '6', title: 'Roots & Revolutions', author: 'Arjun Das', price: 449, gradient: 'bg-gradient-to-br from-lime-200 to-green-100' },
-        ]);
+        setLoading(true);
+        const data = await api.get('/books');
+        setBooks(data.books || []);
       } catch (error) {
         console.error('Error fetching books', error);
+        setBooks([]);
       } finally {
         setLoading(false);
       }
@@ -33,8 +24,8 @@ export function Home() {
   }, []);
 
   const filteredBooks = books.filter(book => 
-    book.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    book.author.toLowerCase().includes(searchQuery.toLowerCase())
+    book.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    book.author?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -90,13 +81,17 @@ export function Home() {
           </div>
         ) : (
           <div className="text-center py-20 bg-cream-100 rounded-lg border border-cream-200">
-            <p className="text-brown-500 mb-2">No books found matching "{searchQuery}"</p>
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="text-brown-900 font-medium hover:underline cursor-pointer"
-            >
-              Clear search
-            </button>
+            <p className="text-brown-500 mb-2">
+              {searchQuery ? `No books found matching "${searchQuery}"` : 'No books published yet.'}
+            </p>
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="text-brown-900 font-medium hover:underline cursor-pointer"
+              >
+                Clear search
+              </button>
+            )}
           </div>
         )}
       </section>

@@ -5,6 +5,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
+import { api } from '../lib/api';
 
 // Setup pdf.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
@@ -16,7 +17,7 @@ export function Reader() {
   
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [pdfUrl] = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
@@ -35,16 +36,18 @@ export function Reader() {
     const fetchPdfAndProgress = async () => {
       try {
         setLoading(true);
-        // const { url } = await api.get(`/reader/${id}/pdf`);
-        // setPdfUrl(url);
-        
-        // Mock PDF URL (use a public sample PDF for testing if needed, or null to simulate loading)
-        // setPdfUrl('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
-        
-        // const { last_read_page, bookmarks: fetchedBookmarks } = await api.get(`/reader/${id}/progress`);
-        // if (last_read_page) setPageNumber(last_read_page);
-        // if (fetchedBookmarks) setBookmarks(fetchedBookmarks);
-        
+        if (id) {
+          // Direct endpoint for streaming PDF
+          setPdfUrl(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/pdf`);
+          
+          try {
+            const progress = await api.get(`/reader/${id}/progress`);
+            if (progress.last_read_page) setPageNumber(progress.last_read_page);
+            if (progress.bookmarks) setBookmarks(typeof progress.bookmarks === 'string' ? JSON.parse(progress.bookmarks) : progress.bookmarks);
+          } catch (err) {
+            console.error('Error fetching progress', err);
+          }
+        }
       } catch (error) {
         console.error('Error fetching PDF or progress', error);
       } finally {
@@ -111,9 +114,9 @@ export function Reader() {
   // Save progress
   useEffect(() => {
     const saveProgress = async () => {
-      if (pageNumber > 1) {
+      if (pageNumber > 1 && id) {
         try {
-          // await api.put(`/reader/${id}/progress`, { last_read_page: pageNumber });
+          await api.put(`/reader/${id}/progress`, { last_read_page: pageNumber });
         } catch (error) {
           console.error('Failed to save progress', error);
         }
@@ -143,10 +146,12 @@ export function Reader() {
       
     setBookmarks(newBookmarks);
     
-    try {
-      // await api.put(`/reader/${id}/bookmarks`, { bookmarks: newBookmarks });
-    } catch (error) {
-      console.error('Failed to save bookmarks', error);
+    if (id) {
+      try {
+        await api.put(`/reader/${id}/progress`, { bookmarks: JSON.stringify(newBookmarks) });
+      } catch (error) {
+        console.error('Failed to save bookmarks', error);
+      }
     }
   };
 
@@ -168,14 +173,14 @@ export function Reader() {
       <div className={`absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-cream-100/90 to-transparent z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <button 
           onClick={() => navigate(`/book/${id}`)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm"
+          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm cursor-pointer"
         >
           <ArrowLeft size={18} />
           <span className="text-sm font-medium">Back</span>
         </button>
         <button 
           onClick={() => setShowBookmarks(true)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm"
+          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm cursor-pointer"
         >
           <List size={18} />
           <span className="text-sm font-medium">Bookmarks</span>
@@ -201,10 +206,7 @@ export function Reader() {
           </Document>
         ) : (
           <div className="text-brown-500 font-serif text-lg">
-            (PDF Document rendering simulated)
-            <div className="mt-4 text-center">
-              Page {pageNumber} of {numPages || 100}
-            </div>
+            Unable to load book PDF.
           </div>
         )}
       </div>
@@ -214,19 +216,19 @@ export function Reader() {
         <button 
           onClick={() => changePage(-1)}
           disabled={pageNumber <= 1}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors"
+          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
         >
           <ChevronLeft size={24} />
         </button>
         
         <span className="text-sm font-medium text-brown-900 min-w-[80px] text-center font-serif">
-          {pageNumber} <span className="text-brown-400">/</span> {numPages || 100}
+          {pageNumber} <span className="text-brown-400">/</span> {numPages || 1}
         </span>
         
         <button 
           onClick={() => changePage(1)}
-          disabled={pageNumber >= (numPages || 100)}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors"
+          disabled={pageNumber >= (numPages || 1)}
+          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
         >
           <ChevronRight size={24} />
         </button>
@@ -235,7 +237,7 @@ export function Reader() {
 
         <button 
           onClick={toggleBookmark}
-          className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} transition-colors`}
+          className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} transition-colors cursor-pointer`}
         >
           <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
         </button>
@@ -245,7 +247,7 @@ export function Reader() {
       <div className={`fixed top-0 right-0 h-full w-80 bg-cream-50 border-l border-cream-200 shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${showBookmarks ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="p-4 border-b border-cream-200 flex justify-between items-center bg-cream-100">
           <h2 className="font-serif text-lg font-semibold text-brown-900">Bookmarks</h2>
-          <button onClick={() => setShowBookmarks(false)} className="text-brown-500 hover:text-brown-900">
+          <button onClick={() => setShowBookmarks(false)} className="text-brown-500 hover:text-brown-900 cursor-pointer">
             <X size={20} />
           </button>
         </div>
@@ -261,7 +263,7 @@ export function Reader() {
                       setPageNumber(page);
                       setShowBookmarks(false);
                     }}
-                    className="w-full text-left px-4 py-3 rounded-md hover:bg-cream-100 text-brown-700 text-sm flex justify-between items-center group transition-colors"
+                    className="w-full text-left px-4 py-3 rounded-md hover:bg-cream-100 text-brown-700 text-sm flex justify-between items-center group transition-colors cursor-pointer"
                   >
                     <span>Page {page}</span>
                     <Bookmark size={14} className="opacity-0 group-hover:opacity-100" />

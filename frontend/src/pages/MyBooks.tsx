@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { BookCard } from '../components/BookCard';
+import { api } from '../lib/api';
 
 export function MyBooks() {
   const { user } = useAuth();
@@ -18,15 +19,11 @@ export function MyBooks() {
     const fetchMyBooks = async () => {
       try {
         setLoading(true);
-        // const data = await api.get('/user/purchases');
-        // setBooks(data.books);
-        
-        // Mock data
-        setBooks([
-          { id: '1', title: 'The Art of Silence', author: 'Priya Sharma', price: 499, gradient: 'bg-gradient-to-br from-amber-200 to-orange-100' },
-        ]);
+        const data = await api.get('/user/purchases');
+        setBooks(data.purchases || []);
       } catch (error) {
         console.error('Error fetching user books', error);
+        setBooks([]);
       } finally {
         setLoading(false);
       }

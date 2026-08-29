@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { load } from '@cashfreepayments/cashfree-js';
+import { api } from '../lib/api';
 
 export function BookDetail() {
   const { id } = useParams<{ id: string }>();
@@ -14,27 +15,22 @@ export function BookDetail() {
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
-    // Mock fetch for now, replace with API call
     const fetchBookAndStatus = async () => {
       try {
         setLoading(true);
-        // const bookData = await api.get(`/books/${id}`);
-        // setBook(bookData.book);
-        
-        // Mock data
-        setBook({
-          id,
-          title: 'The Art of Silence',
-          author: 'Priya Sharma',
-          price: 499,
-          description: 'A profound exploration of quietude in a noisy world. Priya Sharma masterfully weaves personal anecdotes with ancient philosophy to present a compelling case for embracing silence as a transformative practice. This book will change how you perceive the space between words.',
-          gradient: 'bg-gradient-to-br from-amber-200 to-orange-100'
-        });
-
-        if (user) {
-          // const status = await api.get(`/user/purchases/${id}`);
-          // setHasPurchased(status.hasPurchased);
-          setHasPurchased(false); // Mock
+        if (id) {
+          const bookData = await api.get(`/books/${id}`);
+          setBook(bookData.book);
+          
+          if (user) {
+            try {
+              const purchasesData = await api.get('/user/purchases');
+              const purchased = purchasesData.purchases?.some((p: any) => p.book_id === id);
+              setHasPurchased(!!purchased);
+            } catch (err) {
+              console.error('Error fetching user purchases', err);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching book', error);
@@ -56,37 +52,32 @@ export function BookDetail() {
       setProcessing(true);
       
       // 1. Initialize Cashfree SDK
-      await load({
-        mode: 'sandbox', // or 'production'
+      const cashfree = await load({
+        mode: 'sandbox',
       });
       
       // 2. Call backend to create order
-      // const orderData = await api.post('/payment/create-order', { bookId: id });
-      
-      // Mock order session
-       // const mockSessionId = 'mock_session_id';
+      const orderData = await api.post('/payment/create-order', { 
+        bookId: id,
+        userId: user.uid,
+        customerEmail: user.email,
+        customerPhone: '9999999999',
+        customerName: user.displayName || 'Customer'
+      });
       
       // 3. Open checkout
-      // await cashfree.checkout({
-      //   paymentSessionId: orderData.payment_session_id
-      // });
+      if (orderData.payment_session_id) {
+        await cashfree.checkout({
+          paymentSessionId: orderData.payment_session_id,
+          redirectTarget: '_self'
+        });
+      } else {
+        throw new Error('Could not generate Cashfree payment session');
+      }
       
-      // 4. Verify payment on our backend
-      // await api.post('/payment/verify', { 
-      //   orderId: orderData.order_id,
-      //   bookId: id
-      // });
-      
-      // Mock success
-      setTimeout(() => {
-        setHasPurchased(true);
-        setProcessing(false);
-        navigate(`/read/${id}`);
-      }, 1500);
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment failed', error);
-      alert('Payment failed. Please try again.');
+      alert(`Payment failed: ${error.message || 'Please try again.'}`);
       setProcessing(false);
     }
   };
@@ -103,7 +94,7 @@ export function BookDetail() {
     return (
       <div className="max-w-6xl mx-auto px-6 py-20 text-center">
         <h1 className="font-serif text-3xl text-brown-900 mb-4">Book not found</h1>
-        <button onClick={() => navigate('/')} className="text-brown-500 hover:text-brown-900 underline">Return home</button>
+        <button onClick={() => navigate('/')} className="text-brown-500 hover:text-brown-900 underline cursor-pointer">Return home</button>
       </div>
     );
   }
@@ -114,16 +105,13 @@ export function BookDetail() {
         {/* Cover */}
         <div className="w-full md:w-1/2 lg:w-2/5 flex-shrink-0">
           <div className="bg-cream-100 rounded-lg overflow-hidden aspect-[3/4] flex items-end relative border border-cream-200 shadow-md">
-            {book.coverUrl ? (
-              <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
+            {book.cover_url ? (
+              <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
             ) : (
-              <>
-                <div className={`absolute inset-0 opacity-[0.07] ${book.gradient || 'bg-gradient-to-br from-amber-200 to-orange-100'}`} />
-                <div className="relative z-10 w-full p-8 md:p-12">
-                  <p className="font-serif text-3xl lg:text-4xl font-semibold leading-snug text-brown-900 mb-2">{book.title}</p>
-                  <p className="text-brown-500 text-sm tracking-widest uppercase">{book.author}</p>
-                </div>
-              </>
+              <div className="relative z-10 w-full p-8 md:p-12">
+                <p className="font-serif text-3xl lg:text-4xl font-semibold leading-snug text-brown-900 mb-2">{book.title}</p>
+                <p className="text-brown-500 text-sm tracking-widest uppercase">{book.author}</p>
+              </div>
             )}
           </div>
         </div>

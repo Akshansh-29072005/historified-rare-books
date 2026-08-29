@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../lib/api';
 
 export function Admin() {
   const { user } = useAuth();
@@ -27,25 +28,21 @@ export function Admin() {
     }
   }, [user, navigate]);
 
+  const loadBooks = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get('/books');
+      setBooks(data.books || []);
+    } catch (error) {
+      console.error('Failed to fetch books', error);
+      setBooks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        // const data = await api.get('/books');
-        // setBooks(data.books);
-        
-        // Mock
-        setBooks([
-          { id: '1', title: 'The Art of Silence', author: 'Priya Sharma', price: 499 },
-          { id: '2', title: 'Letters to the Ganges', author: 'Raghav Iyer', price: 349 },
-          { id: '3', title: 'Whispers of the Banyan', author: 'Ananya Devi', price: 599 },
-        ]);
-      } catch (error) {
-        console.error('Failed to fetch books', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBooks();
+    loadBooks();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,45 +54,36 @@ export function Admin() {
 
     try {
       setUploading(true);
-      
-      // Simulate file upload
       setUploadProgress(20);
       
       // 1. Upload PDF
-      // const pdfFormData = new FormData();
-      // pdfFormData.append('file', pdfFile);
-      // const pdfRes = await fetch('http://localhost:8787/api/upload/pdf', {
-      //   method: 'POST',
-      //   body: pdfFormData
-      // });
-      // const { pdfKey } = await pdfRes.json();
+      const pdfFormData = new FormData();
+      pdfFormData.append('file', pdfFile);
+      const pdfData = await api.uploadFile('/upload/pdf', pdfFormData);
+      const pdf_r2_key = pdfData.key || pdfData.pdf_r2_key;
       
       setUploadProgress(60);
 
-      // 2. Upload Cover (if any)
-      // let coverKey = null;
+      // 2. Upload Cover (if selected)
+      let cover_url = null;
       if (coverFile) {
-        // const coverFormData = new FormData();
-        // coverFormData.append('file', coverFile);
-        // const coverRes = await fetch('http://localhost:8787/api/upload/cover', {
-        //   method: 'POST',
-        //   body: coverFormData
-        // });
-        // const coverData = await coverRes.json();
-        // coverKey = coverData.coverKey;
+        const coverFormData = new FormData();
+        coverFormData.append('file', coverFile);
+        const coverData = await api.uploadFile('/upload/cover', coverFormData);
+        cover_url = coverData.url || coverData.cover_url;
       }
       
-      setUploadProgress(80);
+      setUploadProgress(85);
 
-      // 3. Create book metadata
-      // await api.post('/books', {
-      //   title,
-      //   author,
-      //   price: Number(price),
-      //   description,
-      //   pdfKey: 'mock-pdf-key',
-      //   coverKey
-      // });
+      // 3. Save book metadata to database
+      await api.post('/books', {
+        title,
+        author,
+        price: Number(price),
+        description,
+        pdf_r2_key,
+        cover_url
+      });
 
       setUploadProgress(100);
       
@@ -110,30 +98,30 @@ export function Admin() {
         setUploading(false);
         setUploadProgress(0);
         alert('Book published successfully!');
-        
-        // Refresh list
-        setBooks([{ id: Date.now().toString(), title, author, price: Number(price) }, ...books]);
+        loadBooks();
       }, 500);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed', error);
-      alert('Upload failed');
+      alert(`Upload failed: ${error.message || 'Error occurred'}`);
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this book?')) {
       try {
-        // await api.delete(`/books/${id}`);
+        await api.delete(`/books/${id}`);
         setBooks(books.filter(b => b.id !== id));
       } catch (error) {
         console.error('Failed to delete', error);
+        alert('Failed to delete book');
       }
     }
   };
 
-  if (!user || user.email !== 'admin@historified.com') return null;
+  if (!user || user.email !== 'akshanshkhairwar@gmail.com') return null;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16">
@@ -282,8 +270,7 @@ export function Admin() {
                   <p className="text-brown-400 text-xs mt-0.5">{book.author} · ₹{book.price}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button className="text-brown-500 hover:text-brown-900 text-sm font-medium transition-colors">Edit</button>
-                  <button onClick={() => handleDelete(book.id)} className="text-red-800/70 hover:text-red-800 text-sm font-medium transition-colors">Delete</button>
+                  <button onClick={() => handleDelete(book.id)} className="text-red-800/70 hover:text-red-800 text-sm font-medium transition-colors cursor-pointer">Delete</button>
                 </div>
               </div>
             ))}
