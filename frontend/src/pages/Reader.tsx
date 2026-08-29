@@ -19,6 +19,7 @@ export function Reader() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -26,19 +27,38 @@ export function Reader() {
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initial fetch
+  // Initial fetch with Auth token
   useEffect(() => {
     if (!user) {
       navigate('/');
       return;
     }
 
+    let createdObjectUrl: string | null = null;
+
     const fetchPdfAndProgress = async () => {
       try {
         setLoading(true);
+        setErrorMsg(null);
+        
         if (id) {
-          // Direct endpoint for streaming PDF
-          setPdfUrl(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/pdf`);
+          const token = await user.getIdToken();
+          
+          // Authenticated fetch for PDF stream
+          const res = await fetch(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/pdf`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || errData.details || `HTTP ${res.status}`);
+          }
+          
+          const blob = await res.blob();
+          createdObjectUrl = URL.createObjectURL(blob);
+          setPdfUrl(createdObjectUrl);
           
           try {
             const progress = await api.get(`/reader/${id}/progress`);
@@ -48,14 +68,21 @@ export function Reader() {
             console.error('Error fetching progress', err);
           }
         }
-      } catch (error) {
-        console.error('Error fetching PDF or progress', error);
+      } catch (error: any) {
+        console.error('Error fetching PDF', error);
+        setErrorMsg(error.message || 'Failed to load PDF');
       } finally {
         setLoading(false);
       }
     };
 
     fetchPdfAndProgress();
+
+    return () => {
+      if (createdObjectUrl) {
+        URL.revokeObjectURL(createdObjectUrl);
+      }
+    };
   }, [id, user, navigate]);
 
   // Security measures
@@ -205,43 +232,52 @@ export function Reader() {
             />
           </Document>
         ) : (
-          <div className="text-brown-500 font-serif text-lg">
-            Unable to load book PDF.
+          <div className="text-center p-8 bg-cream-100 border border-cream-200 rounded-lg max-w-md">
+            <h2 className="font-serif text-xl font-semibold text-brown-900 mb-2">Unable to Open Reader</h2>
+            <p className="text-brown-500 text-sm mb-6">{errorMsg || 'Purchase required to read this book.'}</p>
+            <button 
+              onClick={() => navigate(`/book/${id}`)}
+              className="bg-brown-900 text-cream-50 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer"
+            >
+              Return to Book Page
+            </button>
           </div>
         )}
       </div>
 
       {/* Bottom Controls */}
-      <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-cream-100/95 backdrop-blur-md border border-cream-200 rounded-full shadow-lg px-6 py-3 flex items-center gap-6 z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <button 
-          onClick={() => changePage(-1)}
-          disabled={pageNumber <= 1}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
-        >
-          <ChevronLeft size={24} />
-        </button>
-        
-        <span className="text-sm font-medium text-brown-900 min-w-[80px] text-center font-serif">
-          {pageNumber} <span className="text-brown-400">/</span> {numPages || 1}
-        </span>
-        
-        <button 
-          onClick={() => changePage(1)}
-          disabled={pageNumber >= (numPages || 1)}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
-        >
-          <ChevronRight size={24} />
-        </button>
+      {pdfUrl && (
+        <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-cream-100/95 backdrop-blur-md border border-cream-200 rounded-full shadow-lg px-6 py-3 flex items-center gap-6 z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <button 
+            onClick={() => changePage(-1)}
+            disabled={pageNumber <= 1}
+            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          
+          <span className="text-sm font-medium text-brown-900 min-w-[80px] text-center font-serif">
+            {pageNumber} <span className="text-brown-400">/</span> {numPages || 1}
+          </span>
+          
+          <button 
+            onClick={() => changePage(1)}
+            disabled={pageNumber >= (numPages || 1)}
+            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
+          >
+            <ChevronRight size={24} />
+          </button>
 
-        <div className="w-px h-6 bg-cream-300"></div>
+          <div className="w-px h-6 bg-cream-300"></div>
 
-        <button 
-          onClick={toggleBookmark}
-          className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} transition-colors cursor-pointer`}
-        >
-          <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
-        </button>
-      </div>
+          <button 
+            onClick={toggleBookmark}
+            className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} transition-colors cursor-pointer`}
+          >
+            <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+          </button>
+        </div>
+      )}
 
       {/* Bookmarks Sidebar */}
       <div className={`fixed top-0 right-0 h-full w-80 bg-cream-50 border-l border-cream-200 shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${showBookmarks ? 'translate-x-0' : 'translate-x-full'}`}>
