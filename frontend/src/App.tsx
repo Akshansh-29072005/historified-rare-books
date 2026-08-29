@@ -24,7 +24,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/" />;
   }
 
-  if (requireAdmin && user.email !== 'admin@historified.com') {
+  if (requireAdmin && user.email !== 'akshanshkhairwar@gmail.com') {
     return <Navigate to="/" />;
   }
 

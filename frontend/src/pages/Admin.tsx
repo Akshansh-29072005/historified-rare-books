@@ -22,7 +22,7 @@ export function Admin() {
 
   // Check admin
   useEffect(() => {
-    if (user && user.email !== 'admin@historified.com') {
+    if (user && user.email !== 'akshanshkhairwar@gmail.com') {
       navigate('/');
     }
   }, [user, navigate]);

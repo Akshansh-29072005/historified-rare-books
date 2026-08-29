@@ -13,7 +13,7 @@ const app = new Hono<{ Bindings: Bindings }>()
 app.use(
   '*',
   cors({
-    origin: ['http://localhost:5173', 'https://historified.example.com'], // Adjust production domain
+    origin: ['http://localhost:5173', 'https://historified-rare-books.pages.dev/'], // Adjust production domain
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'x-webhook-signature', 'x-webhook-timestamp'],
     exposeHeaders: ['Content-Length'],
