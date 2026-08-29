@@ -10,6 +10,9 @@ export function Admin() {
   const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Edit vs Create state
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  
   // Form state
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
@@ -17,6 +20,8 @@ export function Admin() {
   const [description, setDescription] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [existingCoverUrl, setExistingCoverUrl] = useState<string | null>(null);
+  const [existingPdfKey, setExistingPdfKey] = useState<string | null>(null);
   
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -45,65 +50,108 @@ export function Admin() {
     loadBooks();
   }, []);
 
+  const resetForm = () => {
+    setEditingBookId(null);
+    setTitle('');
+    setAuthor('');
+    setPrice('');
+    setDescription('');
+    setPdfFile(null);
+    setCoverFile(null);
+    setExistingCoverUrl(null);
+    setExistingPdfKey(null);
+    setUploading(false);
+    setUploadProgress(0);
+  };
+
+  const handleEditClick = (book: any) => {
+    setEditingBookId(book.id);
+    setTitle(book.title || '');
+    setAuthor(book.author || '');
+    setPrice(book.price ? book.price.toString() : '');
+    setDescription(book.description || '');
+    setExistingCoverUrl(book.cover_url || book.coverUrl || null);
+    setExistingPdfKey(book.pdf_r2_key || book.pdfKey || null);
+    setPdfFile(null);
+    setCoverFile(null);
+
+    // Smooth scroll to top form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !author || !price || !description || !pdfFile) {
-      alert('Please fill all required fields');
+    if (!title || !author || !price || !description) {
+      alert('Please fill all required text fields');
+      return;
+    }
+
+    if (!editingBookId && !pdfFile) {
+      alert('Please select a PDF document to publish a new book');
       return;
     }
 
     try {
       setUploading(true);
-      setUploadProgress(20);
+      setUploadProgress(10);
       
-      // 1. Upload PDF
-      const pdfFormData = new FormData();
-      pdfFormData.append('file', pdfFile);
-      const pdfData = await api.uploadFile('/upload/pdf', pdfFormData);
-      const pdf_r2_key = pdfData.key || pdfData.pdf_r2_key;
+      let pdf_r2_key = existingPdfKey;
+      let cover_url = existingCoverUrl;
+
+      // 1. Upload new PDF if selected
+      if (pdfFile) {
+        setUploadProgress(30);
+        const pdfFormData = new FormData();
+        pdfFormData.append('file', pdfFile);
+        const pdfData = await api.uploadFile('/upload/pdf', pdfFormData);
+        pdf_r2_key = pdfData.key || pdfData.pdf_r2_key;
+      }
       
       setUploadProgress(60);
 
-      // 2. Upload Cover (if selected)
-      let cover_url = null;
+      // 2. Upload new Cover if selected
       if (coverFile) {
+        setUploadProgress(75);
         const coverFormData = new FormData();
         coverFormData.append('file', coverFile);
         const coverData = await api.uploadFile('/upload/cover', coverFormData);
         cover_url = coverData.url || coverData.cover_url;
       }
       
-      setUploadProgress(85);
+      setUploadProgress(90);
 
-      // 3. Save book metadata to database
-      await api.post('/books', {
-        title,
-        author,
-        price: Number(price),
-        description,
-        pdf_r2_key,
-        cover_url
-      });
+      // 3. Save or update book in database
+      if (editingBookId) {
+        await api.put(`/books/${editingBookId}`, {
+          title,
+          author,
+          price: Number(price),
+          description,
+          pdf_r2_key,
+          cover_url
+        });
+      } else {
+        await api.post('/books', {
+          title,
+          author,
+          price: Number(price),
+          description,
+          pdf_r2_key,
+          cover_url
+        });
+      }
 
       setUploadProgress(100);
       
-      // Reset form
       setTimeout(() => {
-        setTitle('');
-        setAuthor('');
-        setPrice('');
-        setDescription('');
-        setPdfFile(null);
-        setCoverFile(null);
-        setUploading(false);
-        setUploadProgress(0);
-        alert('Book published successfully!');
+        alert(editingBookId ? 'Book updated successfully!' : 'Book published successfully!');
+        resetForm();
         loadBooks();
-      }, 500);
+      }, 300);
       
     } catch (error: any) {
-      console.error('Upload failed', error);
-      alert(`Upload failed: ${error.message || 'Error occurred'}`);
+      console.error('Operation failed', error);
+      alert(`Failed: ${error.message || 'An error occurred'}`);
       setUploading(false);
       setUploadProgress(0);
     }
@@ -114,6 +162,9 @@ export function Admin() {
       try {
         await api.delete(`/books/${id}`);
         setBooks(books.filter(b => b.id !== id));
+        if (editingBookId === id) {
+          resetForm();
+        }
       } catch (error) {
         console.error('Failed to delete', error);
         alert('Failed to delete book');
@@ -130,13 +181,25 @@ export function Admin() {
         <h1 className="font-serif text-3xl font-semibold text-brown-900">Manage Your Library</h1>
       </div>
 
-      {/* Upload Form */}
-      <div className="bg-cream-100 border border-cream-200 rounded-lg p-8">
-        <h2 className="font-serif text-xl font-semibold text-brown-900 mb-6">Upload a New Book</h2>
+      {/* Form Section */}
+      <div className="bg-cream-100 border border-cream-200 rounded-lg p-8 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="font-serif text-xl font-semibold text-brown-900">
+            {editingBookId ? `Edit Book: "${title}"` : 'Upload a New Book'}
+          </h2>
+          {editingBookId && (
+            <button
+              onClick={resetForm}
+              className="text-xs font-medium text-brown-500 hover:text-brown-900 bg-cream-50 px-3 py-1.5 rounded border border-cream-300 cursor-pointer"
+            >
+              Cancel Edit
+            </button>
+          )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-brown-700 mb-1.5">Book Title</label>
+            <label className="block text-sm font-medium text-brown-700 mb-1.5">Book Title *</label>
             <input 
               type="text" 
               required
@@ -149,7 +212,7 @@ export function Admin() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-brown-700 mb-1.5">Author</label>
+              <label className="block text-sm font-medium text-brown-700 mb-1.5">Author *</label>
               <input 
                 type="text" 
                 required
@@ -160,7 +223,7 @@ export function Admin() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-brown-700 mb-1.5">Price (₹)</label>
+              <label className="block text-sm font-medium text-brown-700 mb-1.5">Price (₹) *</label>
               <input 
                 type="number" 
                 required
@@ -174,7 +237,7 @@ export function Admin() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-brown-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-brown-700 mb-1.5">Description *</label>
             <textarea 
               rows={3} 
               required
@@ -187,12 +250,14 @@ export function Admin() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-brown-700 mb-1.5">PDF Document *</label>
+              <label className="block text-sm font-medium text-brown-700 mb-1.5">
+                PDF Document {editingBookId ? '(Leave empty to keep existing)' : '*'}
+              </label>
               <div className="w-full bg-cream-50 border border-dashed border-cream-300 rounded-md p-6 flex flex-col items-center justify-center relative hover:border-brown-400 transition-colors">
                 <input 
                   type="file" 
                   accept="application/pdf"
-                  required
+                  required={!editingBookId && !pdfFile}
                   onChange={e => setPdfFile(e.target.files?.[0] || null)}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
                 />
@@ -204,13 +269,15 @@ export function Admin() {
                   <polyline points="10 9 9 9 8 9"></polyline>
                 </svg>
                 <p className="text-brown-500 text-xs font-medium text-center">
-                  {pdfFile ? pdfFile.name : 'Select PDF'}
+                  {pdfFile ? pdfFile.name : existingPdfKey ? 'Keep Existing PDF (or click to change)' : 'Select PDF'}
                 </p>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-brown-700 mb-1.5">Cover Image (Optional)</label>
+              <label className="block text-sm font-medium text-brown-700 mb-1.5">
+                Cover Image {editingBookId ? '(Leave empty to keep existing)' : '(Optional)'}
+              </label>
               <div className="w-full bg-cream-50 border border-dashed border-cream-300 rounded-md p-6 flex flex-col items-center justify-center relative hover:border-brown-400 transition-colors">
                 <input 
                   type="file" 
@@ -224,7 +291,7 @@ export function Admin() {
                   <polyline points="21 15 16 10 5 21"></polyline>
                 </svg>
                 <p className="text-brown-500 text-xs font-medium text-center">
-                  {coverFile ? coverFile.name : 'Select Image'}
+                  {coverFile ? coverFile.name : existingCoverUrl ? 'Keep Existing Cover (or click to change)' : 'Select Image'}
                 </p>
               </div>
             </div>
@@ -243,11 +310,11 @@ export function Admin() {
                 ></div>
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cream-50"></div>
-                  Uploading... {uploadProgress}%
+                  {editingBookId ? 'Updating...' : 'Publishing...'} {uploadProgress}%
                 </span>
               </>
             ) : (
-              'Publish Book'
+              editingBookId ? 'Update Book' : 'Publish Book'
             )}
           </button>
         </form>
@@ -264,13 +331,27 @@ export function Admin() {
         ) : books.length > 0 ? (
           <div className="space-y-3">
             {books.map((book) => (
-              <div key={book.id} className="bg-cream-100 border border-cream-200 rounded-lg px-6 py-4 flex items-center justify-between">
+              <div 
+                key={book.id} 
+                className={`bg-cream-100 border rounded-lg px-6 py-4 flex items-center justify-between transition-colors ${editingBookId === book.id ? 'border-brown-900 ring-1 ring-brown-900 bg-cream-200/50' : 'border-cream-200'}`}
+              >
                 <div>
                   <h3 className="text-sm font-medium text-brown-900">{book.title}</h3>
-                  <p className="text-brown-400 text-xs mt-0.5">{book.author} · ₹{book.price}</p>
+                  <p className="text-brown-500 text-xs mt-0.5">{book.author} · ₹{book.price}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => handleDelete(book.id)} className="text-red-800/70 hover:text-red-800 text-sm font-medium transition-colors cursor-pointer">Delete</button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleEditClick(book)}
+                    className="text-brown-700 hover:text-brown-900 text-xs font-medium bg-cream-50 hover:bg-cream-200 px-3 py-1.5 rounded border border-cream-300 transition-colors cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(book.id)} 
+                    className="text-red-700 hover:text-red-900 text-xs font-medium bg-cream-50 hover:bg-red-50 px-3 py-1.5 rounded border border-cream-300 transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
