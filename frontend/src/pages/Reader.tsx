@@ -7,16 +7,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
 
-// Setup same-origin Blob worker wrapper to bypass browser cross-origin worker restrictions
-try {
-  const workerBlob = new Blob(
-    [`importScripts("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js");`],
-    { type: 'application/javascript' }
-  );
-  pdfjs.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
-} catch (e) {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
-}
+// Setup pdf.js worker using reliable cdnjs worker
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
