@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, Bookmark, X, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
 
 // Setup pdf.js worker matching the exact pdfjs version
@@ -298,13 +298,24 @@ export function Reader() {
           </button>
         </div>
 
-        <button 
-          onClick={() => setShowBookmarks(true)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
-        >
-          <Bookmark size={16} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
-          <span>Bookmarks ({bookmarks.length})</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleBookmark}
+            title={bookmarks.includes(pageNumber) ? 'Remove Bookmark' : 'Bookmark Page'}
+            className="flex items-center gap-1.5 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
+          >
+            <Bookmark size={15} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+            <span className="hidden sm:inline">{bookmarks.includes(pageNumber) ? 'Bookmarked' : 'Bookmark'}</span>
+          </button>
+
+          <button 
+            onClick={() => setShowBookmarks(true)}
+            className="flex items-center gap-1.5 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
+          >
+            <List size={15} />
+            <span>({bookmarks.length})</span>
+          </button>
+        </div>
       </footer>
 
       {/* Bookmarks Sidebar */}
