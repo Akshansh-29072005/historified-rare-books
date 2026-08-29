@@ -1,0 +1,17 @@
+name = "backend"
+main = "src/index.ts"
+compatibility_date = "2024-04-05"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "book-reading-db"
+database_id = "book-reading-db"
+
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "book-pdfs"
+
+[vars]
+CASHFREE_API_URL = "https://sandbox.cashfree.com/pg"
+FIREBASE_PROJECT_ID = "YOUR_PROJECT_ID"
+ADMIN_EMAIL = "admin@example.com"

@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+@theme {
+  --color-cream-50: #FDFAF5;
+  --color-cream-100: #F7F0E6;
+  --color-cream-200: #EDE3D4;
+  --color-cream-300: #DED0BC;
+  --color-brown-900: #2C1810;
+  --color-brown-700: #5A3E2B;
+  --color-brown-500: #8B6F5A;
+  --color-brown-400: #A89080;
+  --color-brown-300: #C4B0A0;
+  --color-gold: #967244;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-cream-50);
+    color: var(--color-brown-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+  }
+
+  ::selection {
+    background-color: var(--color-cream-300);
+    color: var(--color-brown-900);
+  }
+
+  input:focus, textarea:focus {
+    outline: 2px solid var(--color-brown-400);
+    outline-offset: 1px;
+  }
+}
