@@ -21,7 +21,10 @@ export const api = {
       method: 'GET',
       headers: await getHeaders(),
     });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
     return response.json();
   },
   
@@ -31,7 +34,10 @@ export const api = {
       headers: await getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
     return response.json();
   },
   
@@ -46,7 +52,10 @@ export const api = {
       headers,
       body: formData,
     });
-    if (!response.ok) throw new Error(`API Upload Error: ${response.statusText}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
     return response.json();
   },
   
@@ -56,7 +65,10 @@ export const api = {
       headers: await getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
     return response.json();
   },
   
@@ -65,7 +77,10 @@ export const api = {
       method: 'DELETE',
       headers: await getHeaders(),
     });
-    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
     return response.json();
   },
 };

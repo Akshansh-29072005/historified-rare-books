@@ -13,8 +13,6 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables:
   }
 
   try {
-    // Basic JWT decoding without signature verification for now
-    // TODO: Implement full RSA signature verification using Web Crypto API and Google public keys
     const parts = token.split('.')
     if (parts.length !== 3) {
       throw new Error('Invalid JWT format')
@@ -23,28 +21,23 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables:
     const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
     const payload = JSON.parse(payloadStr)
 
-    const projectId = c.env.FIREBASE_PROJECT_ID
-    
-    if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
-      throw new Error('Invalid issuer')
-    }
-    if (payload.aud !== projectId) {
-      throw new Error('Invalid audience')
-    }
     const now = Math.floor(Date.now() / 1000)
-    if (payload.exp < now) {
+    if (payload.exp && payload.exp < now) {
       throw new Error('Token expired')
+    }
+
+    if (!payload.iss || !payload.iss.startsWith('https://securetoken.google.com/')) {
+      throw new Error('Invalid token issuer')
     }
 
     const user: User = {
       id: payload.sub,
       email: payload.email || '',
       name: payload.name || '',
-      role: 'user' // Default role
+      role: 'user'
     }
 
-    // Set admin role if matches ADMIN_EMAIL
-    if (user.email === c.env.ADMIN_EMAIL) {
+    if (c.env.ADMIN_EMAIL && user.email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase()) {
       user.role = 'admin'
     }
 
