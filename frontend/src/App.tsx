@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Navbar } from './components/Navbar';
+import { ScamWarningBanner } from './components/ScamWarningBanner';
 import { Home } from './pages/Home';
 import { BookDetail } from './pages/BookDetail';
 import { MyBooks } from './pages/MyBooks';
@@ -40,6 +41,7 @@ function AppRoutes() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
+      <ScamWarningBanner />
       <div className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
