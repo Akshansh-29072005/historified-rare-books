@@ -20,7 +20,7 @@ export function Navbar() {
               <path d="M8 7h6"/>
               <path d="M8 11h4"/>
             </svg>
-            <span className="font-serif text-xl font-semibold tracking-wide">Historified</span>
+            <span className="font-serif text-xl font-semibold tracking-wide">Historified Rare Books</span>
           </div>
         </Link>
 
