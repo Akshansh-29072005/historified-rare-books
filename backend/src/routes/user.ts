@@ -16,8 +16,8 @@ user.get('/me', async (c) => {
   try {
     // Upsert user to ensure they exist in DB
     await c.env.DB.prepare(`
-      INSERT INTO users (id, email, name, role, created_at)
-      VALUES (?, ?, ?, ?, datetime("now"))
+      INSERT INTO users (id, email, name, role)
+      VALUES (?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         email = excluded.email,
         name = excluded.name,
@@ -37,14 +37,14 @@ user.get('/purchases', async (c) => {
 
   try {
     const { results } = await c.env.DB.prepare(`
-      SELECT b.id, b.title, b.author, b.cover_url, b.description, p.status as purchase_status, p.created_at as purchased_at
+      SELECT b.id, b.title, b.author, b.cover_url, b.description, b.price, p.status as purchase_status, p.purchased_at
       FROM purchases p
       JOIN books b ON p.book_id = b.id
       WHERE p.user_id = ? AND p.status = 'COMPLETED'
-      ORDER BY p.created_at DESC
+      ORDER BY p.purchased_at DESC
     `).bind(currentUser.id).all()
 
-    return c.json(results)
+    return c.json({ purchases: results || [] })
   } catch (error) {
     return c.json({ error: 'Failed to fetch purchases', details: (error as Error).message }, 500)
   }

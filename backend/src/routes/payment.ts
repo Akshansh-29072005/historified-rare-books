@@ -10,7 +10,8 @@ const payment = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
 payment.post('/create-order', authMiddleware, async (c) => {
   const user = c.get('user')
-  const { bookId } = await c.req.json()
+  const body = await c.req.json()
+  const { bookId, customerPhone, customerEmail, customerName } = body
 
   if (!bookId) {
     return c.json({ error: 'Book ID is required' }, 400)
@@ -40,12 +41,12 @@ payment.post('/create-order', authMiddleware, async (c) => {
         order_currency: 'INR',
         customer_details: {
           customer_id: user.id,
-          customer_name: user.name || 'User',
-          customer_email: user.email || 'user@example.com',
-          customer_phone: '9999999999' // Requires actual phone usually
+          customer_name: customerName || user.name || 'User',
+          customer_email: customerEmail || user.email || 'user@example.com',
+          customer_phone: customerPhone || '9999999999'
         },
         order_meta: {
-          return_url: `http://localhost:5173/payment/verify?order_id=${orderId}`
+          return_url: `https://historified-rare-books.pages.dev/book/${bookId}?order_id=${orderId}`
         }
       })
     })
@@ -58,9 +59,10 @@ payment.post('/create-order', authMiddleware, async (c) => {
     const orderData = await cashfreeRes.json() as any
 
     // Insert pending purchase
+    const purchaseId = crypto.randomUUID()
     await c.env.DB.prepare(
-      'INSERT INTO purchases (id, user_id, book_id, amount, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime("now"), datetime("now"))'
-    ).bind(orderId, user.id, bookId, book.price, 'PENDING').run()
+      'INSERT INTO purchases (id, user_id, book_id, cashfree_order_id, status) VALUES (?, ?, ?, ?, ?)'
+    ).bind(purchaseId, user.id, bookId, orderId, 'PENDING').run()
 
     return c.json({
       payment_session_id: orderData.payment_session_id,
@@ -95,8 +97,8 @@ payment.post('/verify', authMiddleware, async (c) => {
 
     if (orderData.order_status === 'PAID') {
       await c.env.DB.prepare(
-        'UPDATE purchases SET status = ?, updated_at = datetime("now") WHERE id = ?'
-      ).bind('COMPLETED', orderId).run()
+        'UPDATE purchases SET status = ? WHERE cashfree_order_id = ? OR id = ?'
+      ).bind('COMPLETED', orderId, orderId).run()
       
       return c.json({ status: 'COMPLETED' })
     }
@@ -128,7 +130,6 @@ payment.post('/webhook', async (c) => {
       ['verify']
     )
     
-    // Decode base64 signature
     const signatureBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0))
     
     const isValid = await crypto.subtle.verify(
@@ -147,8 +148,8 @@ payment.post('/webhook', async (c) => {
     if (data.type === 'PAYMENT_SUCCESS_WEBHOOK') {
       const orderId = data.data.order.order_id
       await c.env.DB.prepare(
-        'UPDATE purchases SET status = ?, updated_at = datetime("now") WHERE id = ?'
-      ).bind('COMPLETED', orderId).run()
+        'UPDATE purchases SET status = ? WHERE cashfree_order_id = ? OR id = ?'
+      ).bind('COMPLETED', orderId, orderId).run()
     }
 
     return c.text('OK')

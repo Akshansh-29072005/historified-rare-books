@@ -23,13 +23,13 @@ reader.get('/:bookId/pdf', async (c) => {
     return c.json({ error: 'Purchase required to read this book' }, 403)
   }
 
-  const book = await c.env.DB.prepare('SELECT pdf_key FROM books WHERE id = ?').bind(bookId).first<{ pdf_key: string }>()
+  const book = await c.env.DB.prepare('SELECT pdf_r2_key FROM books WHERE id = ?').bind(bookId).first<{ pdf_r2_key: string }>()
   
-  if (!book || !book.pdf_key) {
+  if (!book || !book.pdf_r2_key) {
     return c.json({ error: 'PDF not found for this book' }, 404)
   }
 
-  const object = await c.env.R2_BUCKET.get(book.pdf_key)
+  const object = await c.env.R2_BUCKET.get(book.pdf_r2_key)
 
   if (!object) {
     return c.json({ error: 'PDF file not found in storage' }, 404)
@@ -38,6 +38,7 @@ reader.get('/:bookId/pdf', async (c) => {
   const headers = new Headers()
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
+  headers.set('content-type', 'application/pdf')
 
   return new Response(object.body, {
     headers
@@ -48,15 +49,19 @@ reader.get('/:bookId/progress', async (c) => {
   const user = c.get('user')
   const bookId = c.req.param('bookId')
 
-  const progress = await c.env.DB.prepare(
-    'SELECT last_read_page, bookmarks FROM reading_progress WHERE user_id = ? AND book_id = ?'
-  ).bind(user.id, bookId).first()
+  try {
+    const progress = await c.env.DB.prepare(
+      'SELECT last_read_page, bookmarks FROM reading_progress WHERE user_id = ? AND book_id = ?'
+    ).bind(user.id, bookId).first()
 
-  if (!progress) {
+    if (!progress) {
+      return c.json({ last_read_page: 1, bookmarks: '[]' })
+    }
+
+    return c.json(progress)
+  } catch (error) {
     return c.json({ last_read_page: 1, bookmarks: '[]' })
   }
-
-  return c.json(progress)
 })
 
 reader.put('/:bookId/progress', async (c) => {
@@ -65,18 +70,20 @@ reader.put('/:bookId/progress', async (c) => {
   const { last_read_page, bookmarks } = await c.req.json()
 
   try {
+    const pageVal = last_read_page !== undefined ? last_read_page : 1
+    const bookmarkVal = typeof bookmarks === 'string' ? bookmarks : JSON.stringify(bookmarks || [])
+
     await c.env.DB.prepare(`
-      INSERT INTO reading_progress (user_id, book_id, last_read_page, bookmarks, updated_at)
-      VALUES (?, ?, ?, ?, datetime("now"))
+      INSERT INTO reading_progress (user_id, book_id, last_read_page, bookmarks)
+      VALUES (?, ?, ?, ?)
       ON CONFLICT(user_id, book_id) DO UPDATE SET
         last_read_page = excluded.last_read_page,
-        bookmarks = excluded.bookmarks,
-        updated_at = datetime("now")
+        bookmarks = excluded.bookmarks
     `).bind(
       user.id, 
       bookId, 
-      last_read_page !== undefined ? last_read_page : 1, 
-      bookmarks !== undefined ? JSON.stringify(bookmarks) : '[]'
+      pageVal, 
+      bookmarkVal
     ).run()
 
     return c.json({ message: 'Progress updated successfully' })
