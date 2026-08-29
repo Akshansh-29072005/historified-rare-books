@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Bookmark, X, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
 
 // Setup pdf.js worker matching the exact pdfjs version
@@ -23,14 +23,14 @@ export function Reader() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const [pageWidth, setPageWidth] = useState<number>(Math.min(window.innerWidth - 48, 800));
+  const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 70);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Responsive page width
+  // Responsive page height calculation so full PDF page fits on screen without top cropping
   useEffect(() => {
     const handleResize = () => {
-      setPageWidth(Math.min(window.innerWidth - 48, 800));
+      setPageHeight(window.innerHeight - 70);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -213,29 +213,8 @@ export function Reader() {
       className="h-screen w-full bg-cream-50 overflow-hidden relative select-none flex flex-col"
       style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
     >
-      {/* Top Bar */}
-      <header className="px-6 py-4 flex justify-between items-center bg-cream-100/90 border-b border-cream-200 z-20 shrink-0">
-        <button 
-          onClick={() => navigate(`/book/${id}`)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-4 py-2 rounded-full border border-cream-300 shadow-sm cursor-pointer"
-        >
-          <ArrowLeft size={18} />
-          <span className="text-sm font-medium">Back to Details</span>
-        </button>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShowBookmarks(true)}
-            className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-4 py-2 rounded-full border border-cream-300 shadow-sm cursor-pointer"
-          >
-            <List size={18} />
-            <span className="text-sm font-medium">Bookmarks ({bookmarks.length})</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+      {/* Main Content Area - Full height with zero top bar clipping */}
+      <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-cream-100/40">
         {/* Previous Page Side Floating Arrow */}
         <button 
           onClick={() => changePage(-1)}
@@ -257,7 +236,7 @@ export function Reader() {
         </button>
 
         {/* PDF Document Canvas Container */}
-        <div className="h-full w-full flex items-center justify-center overflow-auto p-4 md:p-8">
+        <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3">
           {pdfUrl && (
             <Document
               file={pdfUrl}
@@ -274,8 +253,8 @@ export function Reader() {
             >
               <Page 
                 pageNumber={pageNumber} 
-                width={pageWidth}
-                className="shadow-2xl rounded-sm overflow-hidden border border-cream-300"
+                height={pageHeight}
+                className="shadow-2xl rounded-sm overflow-hidden border border-cream-300 my-auto"
                 renderTextLayer={false}
                 renderAnnotationLayer={false}
                 devicePixelRatio={Math.min(2, window.devicePixelRatio)}
@@ -285,40 +264,46 @@ export function Reader() {
         </div>
       </div>
 
-      {/* Bottom Sticky Control Bar */}
-      <footer className="py-3 px-6 bg-cream-100 border-t border-cream-200 flex items-center justify-center gap-6 z-20 shrink-0">
+      {/* Bottom Floating Control Bar containing Back, Page Nav & Bookmarks */}
+      <footer className="py-2.5 px-4 sm:px-8 bg-cream-100 border-t border-cream-200 flex items-center justify-between z-20 shrink-0 shadow-md">
         <button 
-          onClick={() => changePage(-1)}
-          disabled={pageNumber <= 1}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors p-2 rounded-full hover:bg-cream-200 cursor-pointer"
-          title="Previous Page"
+          onClick={() => navigate(`/book/${id}`)}
+          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
         >
-          <ChevronLeft size={24} />
+          <ArrowLeft size={16} />
+          <span>Back</span>
         </button>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-brown-900 font-serif">
+
+        <div className="flex items-center gap-3 sm:gap-6">
+          <button 
+            onClick={() => changePage(-1)}
+            disabled={pageNumber <= 1}
+            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 p-1.5 rounded-full hover:bg-cream-200 cursor-pointer"
+            title="Previous Page"
+          >
+            <ChevronLeft size={22} />
+          </button>
+          
+          <span className="text-xs sm:text-sm font-medium text-brown-900 font-serif">
             Page {pageNumber} of {numPages || '...'}
           </span>
+          
+          <button 
+            onClick={() => changePage(1)}
+            disabled={numPages > 0 && pageNumber >= numPages}
+            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 p-1.5 rounded-full hover:bg-cream-200 cursor-pointer"
+            title="Next Page"
+          >
+            <ChevronRight size={22} />
+          </button>
         </div>
-        
-        <button 
-          onClick={() => changePage(1)}
-          disabled={numPages > 0 && pageNumber >= numPages}
-          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors p-2 rounded-full hover:bg-cream-200 cursor-pointer"
-          title="Next Page"
-        >
-          <ChevronRight size={24} />
-        </button>
-
-        <div className="w-px h-6 bg-cream-300 mx-2"></div>
 
         <button 
-          onClick={toggleBookmark}
-          className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} p-2 rounded-full hover:bg-cream-200 transition-colors cursor-pointer`}
-          title={bookmarks.includes(pageNumber) ? 'Remove Bookmark' : 'Bookmark Page'}
+          onClick={() => setShowBookmarks(true)}
+          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
         >
-          <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+          <Bookmark size={16} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+          <span>Bookmarks ({bookmarks.length})</span>
         </button>
       </footer>
 
