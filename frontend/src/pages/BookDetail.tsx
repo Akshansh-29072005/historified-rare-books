@@ -105,8 +105,8 @@ export function BookDetail() {
         {/* Cover */}
         <div className="w-full md:w-1/2 lg:w-2/5 flex-shrink-0">
           <div className="bg-cream-100 rounded-lg overflow-hidden aspect-[3/4] flex items-end relative border border-cream-200 shadow-md">
-            {book.cover_url ? (
-              <img src={book.cover_url} alt={book.title} className="w-full h-full object-cover" />
+            {book.cover_url || book.coverUrl ? (
+              <img src={book.cover_url || book.coverUrl} alt={book.title} className="w-full h-full object-cover" />
             ) : (
               <div className="relative z-10 w-full p-8 md:p-12">
                 <p className="font-serif text-3xl lg:text-4xl font-semibold leading-snug text-brown-900 mb-2">{book.title}</p>
