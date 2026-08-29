@@ -23,11 +23,9 @@ export function Reader() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
-  const [controlsVisible, setControlsVisible] = useState(true);
   const [pageWidth, setPageWidth] = useState<number>(Math.min(window.innerWidth - 48, 800));
   
   const containerRef = useRef<HTMLDivElement>(null);
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive page width
   useEffect(() => {
@@ -100,7 +98,17 @@ export function Reader() {
     };
   }, [id, user, navigate]);
 
-  // Security measures
+  const changePage = (offset: number) => {
+    setPageNumber(prev => {
+      const newPage = prev + offset;
+      if (numPages > 0) {
+        return Math.min(Math.max(1, newPage), numPages);
+      }
+      return Math.max(1, newPage);
+    });
+  };
+
+  // Keyboard navigation & security rules
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -114,6 +122,16 @@ export function Reader() {
         e.key === 'F12'
       ) {
         e.preventDefault();
+        return;
+      }
+
+      // Page Navigation Shortcuts
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Space' || e.key === 'PageDown') {
+        e.preventDefault();
+        changePage(1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        changePage(-1);
       }
     };
 
@@ -124,34 +142,7 @@ export function Reader() {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
-
-  // Controls fading
-  useEffect(() => {
-    const resetControlsTimeout = () => {
-      setControlsVisible(true);
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = setTimeout(() => {
-        setControlsVisible(false);
-      }, 3000);
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('mousemove', resetControlsTimeout);
-      container.addEventListener('touchstart', resetControlsTimeout);
-    }
-    
-    resetControlsTimeout();
-
-    return () => {
-      if (container) {
-        container.removeEventListener('mousemove', resetControlsTimeout);
-        container.removeEventListener('touchstart', resetControlsTimeout);
-      }
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    };
-  }, []);
+  }, [numPages]);
 
   // Save progress
   useEffect(() => {
@@ -171,13 +162,6 @@ export function Reader() {
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
-  };
-
-  const changePage = (offset: number) => {
-    setPageNumber(prevPageNumber => {
-      const newPage = prevPageNumber + offset;
-      return Math.min(Math.max(1, newPage), numPages);
-    });
   };
 
   const toggleBookmark = async () => {
@@ -226,88 +210,117 @@ export function Reader() {
   return (
     <div 
       ref={containerRef}
-      className="h-screen w-full bg-cream-50 overflow-hidden relative select-none"
+      className="h-screen w-full bg-cream-50 overflow-hidden relative select-none flex flex-col"
       style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
     >
       {/* Top Bar */}
-      <div className={`absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-cream-100/90 to-transparent z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+      <header className="px-6 py-4 flex justify-between items-center bg-cream-100/90 border-b border-cream-200 z-20 shrink-0">
         <button 
           onClick={() => navigate(`/book/${id}`)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm cursor-pointer"
+          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-4 py-2 rounded-full border border-cream-300 shadow-sm cursor-pointer"
         >
           <ArrowLeft size={18} />
-          <span className="text-sm font-medium">Back</span>
+          <span className="text-sm font-medium">Back to Details</span>
         </button>
-        <button 
-          onClick={() => setShowBookmarks(true)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50/80 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm cursor-pointer"
-        >
-          <List size={18} />
-          <span className="text-sm font-medium">Bookmarks</span>
-        </button>
-      </div>
-
-      {/* PDF Viewer */}
-      <div className="h-full w-full flex items-center justify-center overflow-auto p-4 md:p-12 pb-24">
-        {pdfUrl && (
-          <Document
-            file={pdfUrl}
-            onLoadSuccess={onDocumentLoadSuccess}
-            onLoadError={(err) => setErrorMsg(err.message || 'Error parsing PDF file')}
-            onSourceError={(err) => setErrorMsg(err.message || 'Error loading PDF stream')}
-            className="flex flex-col items-center max-w-full"
-            loading={
-              <div className="flex flex-col items-center gap-3">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
-                <p className="text-brown-500 text-xs font-serif italic">Rendering pages...</p>
-              </div>
-            }
-          >
-            <Page 
-              pageNumber={pageNumber} 
-              width={pageWidth}
-              className="shadow-xl rounded-sm overflow-hidden"
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-              devicePixelRatio={Math.min(2, window.devicePixelRatio)}
-            />
-          </Document>
-        )}
-      </div>
-
-      {/* Bottom Controls */}
-      {pdfUrl && (
-        <div className={`absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-cream-100/95 backdrop-blur-md border border-cream-200 rounded-full shadow-lg px-6 py-3 flex items-center gap-6 z-10 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        
+        <div className="flex items-center gap-3">
           <button 
-            onClick={() => changePage(-1)}
-            disabled={pageNumber <= 1}
-            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
+            onClick={() => setShowBookmarks(true)}
+            className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-4 py-2 rounded-full border border-cream-300 shadow-sm cursor-pointer"
           >
-            <ChevronLeft size={24} />
-          </button>
-          
-          <span className="text-sm font-medium text-brown-900 min-w-[80px] text-center font-serif">
-            {pageNumber} <span className="text-brown-400">/</span> {numPages || 1}
-          </span>
-          
-          <button 
-            onClick={() => changePage(1)}
-            disabled={pageNumber >= (numPages || 1)}
-            className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors cursor-pointer"
-          >
-            <ChevronRight size={24} />
-          </button>
-
-          <div className="w-px h-6 bg-cream-300"></div>
-
-          <button 
-            onClick={toggleBookmark}
-            className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} transition-colors cursor-pointer`}
-          >
-            <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+            <List size={18} />
+            <span className="text-sm font-medium">Bookmarks ({bookmarks.length})</span>
           </button>
         </div>
-      )}
+      </header>
+
+      {/* Main Content Area */}
+      <div className="flex-1 relative overflow-hidden flex items-center justify-center">
+        {/* Previous Page Side Floating Arrow */}
+        <button 
+          onClick={() => changePage(-1)}
+          disabled={pageNumber <= 1}
+          title="Previous Page (Left Arrow)"
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-cream-100/90 hover:bg-cream-200 text-brown-900 p-3 rounded-full border border-cream-300 shadow-lg disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer"
+        >
+          <ChevronLeft size={28} />
+        </button>
+
+        {/* Next Page Side Floating Arrow */}
+        <button 
+          onClick={() => changePage(1)}
+          disabled={numPages > 0 && pageNumber >= numPages}
+          title="Next Page (Right Arrow)"
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-cream-100/90 hover:bg-cream-200 text-brown-900 p-3 rounded-full border border-cream-300 shadow-lg disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer"
+        >
+          <ChevronRight size={28} />
+        </button>
+
+        {/* PDF Document Canvas Container */}
+        <div className="h-full w-full flex items-center justify-center overflow-auto p-4 md:p-8">
+          {pdfUrl && (
+            <Document
+              file={pdfUrl}
+              onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={(err) => setErrorMsg(err.message || 'Error parsing PDF file')}
+              onSourceError={(err) => setErrorMsg(err.message || 'Error loading PDF stream')}
+              className="flex flex-col items-center max-w-full"
+              loading={
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+                  <p className="text-brown-500 text-xs font-serif italic">Rendering page...</p>
+                </div>
+              }
+            >
+              <Page 
+                pageNumber={pageNumber} 
+                width={pageWidth}
+                className="shadow-2xl rounded-sm overflow-hidden border border-cream-300"
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+                devicePixelRatio={Math.min(2, window.devicePixelRatio)}
+              />
+            </Document>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom Sticky Control Bar */}
+      <footer className="py-3 px-6 bg-cream-100 border-t border-cream-200 flex items-center justify-center gap-6 z-20 shrink-0">
+        <button 
+          onClick={() => changePage(-1)}
+          disabled={pageNumber <= 1}
+          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors p-2 rounded-full hover:bg-cream-200 cursor-pointer"
+          title="Previous Page"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-brown-900 font-serif">
+            Page {pageNumber} of {numPages || '...'}
+          </span>
+        </div>
+        
+        <button 
+          onClick={() => changePage(1)}
+          disabled={numPages > 0 && pageNumber >= numPages}
+          className="text-brown-700 hover:text-brown-900 disabled:opacity-30 transition-colors p-2 rounded-full hover:bg-cream-200 cursor-pointer"
+          title="Next Page"
+        >
+          <ChevronRight size={24} />
+        </button>
+
+        <div className="w-px h-6 bg-cream-300 mx-2"></div>
+
+        <button 
+          onClick={toggleBookmark}
+          className={`${bookmarks.includes(pageNumber) ? 'text-brown-900' : 'text-brown-400 hover:text-brown-700'} p-2 rounded-full hover:bg-cream-200 transition-colors cursor-pointer`}
+          title={bookmarks.includes(pageNumber) ? 'Remove Bookmark' : 'Bookmark Page'}
+        >
+          <Bookmark size={20} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
+        </button>
+      </footer>
 
       {/* Bookmarks Sidebar */}
       <div className={`fixed top-0 right-0 h-full w-80 bg-cream-50 border-l border-cream-200 shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${showBookmarks ? 'translate-x-0' : 'translate-x-full'}`}>
