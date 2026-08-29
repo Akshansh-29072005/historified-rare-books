@@ -8,7 +8,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Example admin check based on email, in production this should be a custom claim or DB check
-  const isAdmin = user?.email === 'admin@historified.com';
+  const isAdmin = user?.email === 'akshanshkhairwar@gmail.com';
 
   return (
     <header className="border-b border-cream-200 bg-cream-50 sticky top-0 z-50">
