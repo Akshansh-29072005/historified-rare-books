@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Navbar } from './components/Navbar';
 import { Home } from './pages/Home';
@@ -6,6 +6,10 @@ import { BookDetail } from './pages/BookDetail';
 import { MyBooks } from './pages/MyBooks';
 import { Reader } from './pages/Reader';
 import { Admin } from './pages/Admin';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsConditions } from './pages/TermsConditions';
+import { RefundPolicy } from './pages/RefundPolicy';
+import { ContactUs } from './pages/ContactUs';
 import './App.css';
 
 // Protected Route Component
@@ -39,6 +43,10 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/book/:id" element={<BookDetail />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsConditions />} />
+          <Route path="/refunds" element={<RefundPolicy />} />
+          <Route path="/contact" element={<ContactUs />} />
           <Route 
             path="/my-books" 
             element={
@@ -71,12 +79,17 @@ function AppRoutes() {
         <Route path="/read/:id" element={null} />
         <Route path="*" element={
           <footer className="border-t border-cream-200 bg-cream-100 mt-auto">
-            <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4">
-              <p className="text-brown-400 text-sm">&copy; 2026 Historified. All rights reserved.</p>
-              <div className="flex gap-6 text-brown-400 text-sm">
-                <a href="#" className="hover:text-brown-900 transition-colors no-underline text-brown-400">Privacy</a>
-                <a href="#" className="hover:text-brown-900 transition-colors no-underline text-brown-400">Terms</a>
-                <a href="#" className="hover:text-brown-900 transition-colors no-underline text-brown-400">Contact</a>
+            <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="flex flex-col items-center md:items-start gap-1">
+                <p className="font-serif text-lg font-semibold text-brown-900">Historified</p>
+                <p className="text-brown-400 text-xs">&copy; 2026 Historified Rare Books. All prices in INR (₹).</p>
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-6 text-brown-500 text-sm">
+                <Link to="/contact" className="hover:text-brown-900 transition-colors no-underline text-brown-500">Contact Us</Link>
+                <Link to="/terms" className="hover:text-brown-900 transition-colors no-underline text-brown-500">Terms &amp; Conditions</Link>
+                <Link to="/refunds" className="hover:text-brown-900 transition-colors no-underline text-brown-500">Refunds &amp; Cancellations</Link>
+                <Link to="/privacy" className="hover:text-brown-900 transition-colors no-underline text-brown-500">Privacy Policy</Link>
               </div>
             </div>
           </footer>
