@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export interface BookCardProps {
@@ -11,6 +12,7 @@ export interface BookCardProps {
 }
 
 export function BookCard({ id, title, author, price, coverUrl, cover_url, gradient = 'bg-gradient-to-br from-amber-200 to-orange-100' }: BookCardProps) {
+  const [imgError, setImgError] = useState(false);
   const displayCover = cover_url || coverUrl;
 
   return (
@@ -18,8 +20,13 @@ export function BookCard({ id, title, author, price, coverUrl, cover_url, gradie
       <Link to={`/book/${id}`} className="no-underline text-inherit block">
         {/* Cover */}
         <div className="bg-cream-100 rounded-lg overflow-hidden mb-4 aspect-[3/4] flex items-end relative border border-cream-200 group-hover:border-brown-400 transition-colors shadow-sm group-hover:shadow-md">
-          {displayCover ? (
-            <img src={displayCover} alt={title} className="w-full h-full object-cover" />
+          {displayCover && !imgError ? (
+            <img 
+              src={displayCover} 
+              alt={title} 
+              className="w-full h-full object-cover" 
+              onError={() => setImgError(true)}
+            />
           ) : (
             <>
               <div className={`absolute inset-0 opacity-[0.07] ${gradient}`} />
