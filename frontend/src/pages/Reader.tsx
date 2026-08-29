@@ -6,9 +6,10 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
 import { api } from '../lib/api';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
-// Setup pdf.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// Setup pdf.js worker with Vite bundled ES module worker
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ export function Reader() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingText, setLoadingText] = useState('Fetching e-book stream...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
@@ -40,9 +42,12 @@ export function Reader() {
       try {
         setLoading(true);
         setErrorMsg(null);
+        setLoadingText('Connecting to secure PDF stream...');
         
         if (id) {
           const token = await user.getIdToken();
+          
+          setLoadingText('Downloading digital manuscript...');
           
           // Authenticated fetch for PDF stream
           const res = await fetch(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/pdf`, {
@@ -56,6 +61,7 @@ export function Reader() {
             throw new Error(errData.error || errData.details || `HTTP ${res.status}`);
           }
           
+          setLoadingText('Rendering pages...');
           const blob = await res.blob();
           createdObjectUrl = URL.createObjectURL(blob);
           setPdfUrl(createdObjectUrl);
@@ -184,8 +190,9 @@ export function Reader() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-cream-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+      <div className="flex flex-col items-center justify-center h-screen bg-cream-50 gap-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brown-900"></div>
+        <p className="text-brown-500 font-serif text-sm italic">{loadingText}</p>
       </div>
     );
   }
@@ -221,7 +228,12 @@ export function Reader() {
             file={pdfUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             className="flex flex-col items-center max-w-full"
-            loading={<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>}
+            loading={
+              <div className="flex flex-col items-center gap-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+                <p className="text-brown-500 text-xs font-serif italic">Preparing pages...</p>
+              </div>
+            }
           >
             <Page 
               pageNumber={pageNumber} 
