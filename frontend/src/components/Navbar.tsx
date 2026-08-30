@@ -2,13 +2,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
+import { isAdminEmail } from '../config/admin';
 
 export function Navbar() {
   const { user, signInWithGoogle, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Example admin check based on email, in production this should be a custom claim or DB check
-  const isAdmin = user?.email === 'akshanshkhairwar@gmail.com';
+  // Check admin status against central ADMIN_EMAILS list
+  const isAdmin = isAdminEmail(user?.email);
 
   return (
     <header className="border-b border-cream-200 bg-cream-50 sticky top-0 z-50">

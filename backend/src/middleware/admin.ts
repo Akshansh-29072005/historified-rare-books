@@ -7,7 +7,11 @@ export async function adminMiddleware(c: Context<{ Bindings: Bindings, Variables
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
-  if (user.email !== c.env.ADMIN_EMAIL) {
+  // Support multiple admin emails (comma-separated or single)
+  const rawAdminEmails = c.env.ADMIN_EMAILS || c.env.ADMIN_EMAIL || ''
+  const adminEmails = rawAdminEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+
+  if (!adminEmails.includes(user.email.toLowerCase().trim())) {
     return c.json({ error: 'Forbidden: Admin access required' }, 403)
   }
 

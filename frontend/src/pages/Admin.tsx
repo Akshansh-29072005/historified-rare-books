@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
+import { isAdminEmail } from '../config/admin';
 
 export function Admin() {
   const { user } = useAuth();
@@ -26,9 +27,9 @@ export function Admin() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Check admin
+  // Check admin against authorized list
   useEffect(() => {
-    if (user && user.email !== 'historified.rare.books@gmail.com') {
+    if (user && !isAdminEmail(user.email)) {
       navigate('/');
     }
   }, [user, navigate]);
@@ -172,7 +173,7 @@ export function Admin() {
     }
   };
 
-  if (!user || user.email !== 'historified.rare.books@gmail.com') return null;
+  if (!user || !isAdminEmail(user.email)) return null;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16">

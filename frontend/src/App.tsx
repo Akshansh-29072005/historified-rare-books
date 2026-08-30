@@ -12,6 +12,7 @@ import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsConditions } from './pages/TermsConditions';
 import { RefundPolicy } from './pages/RefundPolicy';
 import { ContactUs } from './pages/ContactUs';
+import { isAdminEmail } from './config/admin';
 import './App.css';
 
 // Protected Route Component
@@ -30,7 +31,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/" />;
   }
 
-  if (requireAdmin && user.email !== 'historified.rare.books@gmail.com') {
+  if (requireAdmin && !isAdminEmail(user.email)) {
     return <Navigate to="/" />;
   }
 
