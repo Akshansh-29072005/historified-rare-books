@@ -157,24 +157,24 @@ export function BookDetail() {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-cream-100 border border-cream-200 rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div className="bg-cream-100 border border-cream-200 rounded-lg p-6 flex flex-col lg:flex-row items-center justify-between gap-6">
               <div>
                 <p className="text-brown-500 text-sm mb-1">Edition Price</p>
                 <p className="font-serif text-2xl font-semibold text-brown-900">₹{book.price}</p>
               </div>
               
-              <div className="w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
                 {!user ? (
                   <button 
                     onClick={signInWithGoogle}
-                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-8 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer shadow-sm"
+                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-6 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer shadow-sm whitespace-nowrap"
                   >
                     Sign in to Purchase
                   </button>
                 ) : hasPurchased ? (
                   <button 
                     onClick={() => navigate(`/read/${id}`)}
-                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-8 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer shadow-sm flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-6 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     <BookOpen size={18} />
                     <span>Read Now</span>
@@ -183,7 +183,7 @@ export function BookDetail() {
                   <button 
                     onClick={handlePurchase}
                     disabled={processing}
-                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-8 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto bg-brown-900 text-cream-50 px-6 py-3.5 rounded-md hover:bg-brown-700 transition-colors font-medium cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     {processing ? (
                       <>
@@ -195,6 +195,21 @@ export function BookDetail() {
                     )}
                   </button>
                 )}
+
+                {/* DM for Student Discount Button */}
+                <a
+                  href="https://www.instagram.com/reel/DckwPNwoZMH/?igsi=bXIybWhsM3N1ZWtt"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto bg-cream-50 hover:bg-cream-200 text-brown-900 border border-cream-300 px-5 py-3.5 rounded-md font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm no-underline whitespace-nowrap"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+                    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+                  </svg>
+                  <span>DM for Student Discount</span>
+                </a>
               </div>
             </div>
 
