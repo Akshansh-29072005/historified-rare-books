@@ -28,7 +28,7 @@ export function Admin() {
 
   // Check admin
   useEffect(() => {
-    if (user && user.email !== 'akshanshkhairwar@gmail.com') {
+    if (user && user.email !== 'historified.rare.books@gmail.com') {
       navigate('/');
     }
   }, [user, navigate]);
@@ -172,7 +172,7 @@ export function Admin() {
     }
   };
 
-  if (!user || user.email !== 'akshanshkhairwar@gmail.com') return null;
+  if (!user || user.email !== 'historified.rare.books@gmail.com') return null;
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16">
