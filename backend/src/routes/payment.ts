@@ -11,7 +11,7 @@ const payment = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 payment.post('/create-order', authMiddleware, async (c) => {
   const user = c.get('user')
   const body = await c.req.json()
-  const { bookId, customerPhone, customerEmail, customerName } = body
+  const { bookId, couponCode, customerPhone, customerEmail, customerName } = body
 
   if (!bookId) {
     return c.json({ error: 'Book ID is required' }, 400)
@@ -22,6 +22,23 @@ payment.post('/create-order', authMiddleware, async (c) => {
   
   if (!book) {
     return c.json({ error: 'Book not found' }, 404)
+  }
+
+  let finalAmount = book.price
+  let appliedCouponCode: string | null = null
+
+  // Server-side coupon verification
+  if (couponCode && typeof couponCode === 'string' && couponCode.trim()) {
+    const normalizedCode = couponCode.trim().toUpperCase()
+    const coupon = await c.env.DB.prepare(
+      'SELECT * FROM coupons WHERE UPPER(code) = ? AND is_active = 1'
+    ).bind(normalizedCode).first<any>()
+
+    if (coupon && coupon.times_used < coupon.max_uses) {
+      appliedCouponCode = coupon.code
+      const discountVal = Number(coupon.discount_amount) || 0
+      finalAmount = Math.max(1, book.price - discountVal)
+    }
   }
 
   const orderId = `order_${crypto.randomUUID()}`
@@ -37,7 +54,7 @@ payment.post('/create-order', authMiddleware, async (c) => {
       },
       body: JSON.stringify({
         order_id: orderId,
-        order_amount: book.price,
+        order_amount: finalAmount,
         order_currency: 'INR',
         customer_details: {
           customer_id: user.id,
@@ -46,7 +63,7 @@ payment.post('/create-order', authMiddleware, async (c) => {
           customer_phone: customerPhone || '9999999999'
         },
         order_meta: {
-          return_url: `https://historified-rare-books.pages.dev/book/${bookId}?order_id=${orderId}`
+          return_url: `https://historified-rare-books.pages.dev/book/${bookId}?order_id=${orderId}${appliedCouponCode ? `&coupon=${appliedCouponCode}` : ''}`
         }
       })
     })
@@ -66,7 +83,9 @@ payment.post('/create-order', authMiddleware, async (c) => {
 
     return c.json({
       payment_session_id: orderData.payment_session_id,
-      order_id: orderId
+      order_id: orderId,
+      final_amount: finalAmount,
+      applied_coupon: appliedCouponCode
     })
   } catch (error) {
     return c.json({ error: 'Failed to create order', details: (error as Error).message }, 500)
@@ -74,7 +93,7 @@ payment.post('/create-order', authMiddleware, async (c) => {
 })
 
 payment.post('/verify', authMiddleware, async (c) => {
-  const { orderId } = await c.req.json()
+  const { orderId, couponCode } = await c.req.json()
 
   if (!orderId) {
     return c.json({ error: 'Order ID is required' }, 400)
@@ -100,6 +119,14 @@ payment.post('/verify', authMiddleware, async (c) => {
         'UPDATE purchases SET status = ? WHERE cashfree_order_id = ? OR id = ?'
       ).bind('COMPLETED', orderId, orderId).run()
       
+      // Increment coupon usage if coupon code supplied or in URL
+      if (couponCode && typeof couponCode === 'string') {
+        const normalizedCode = couponCode.trim().toUpperCase()
+        await c.env.DB.prepare(
+          'UPDATE coupons SET times_used = times_used + 1 WHERE UPPER(code) = ?'
+        ).bind(normalizedCode).run().catch(() => {})
+      }
+
       return c.json({ status: 'COMPLETED' })
     }
 

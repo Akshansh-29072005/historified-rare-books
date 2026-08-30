@@ -35,3 +35,13 @@ CREATE TABLE reading_progress (
   bookmarks TEXT DEFAULT '[]',
   PRIMARY KEY (user_id, book_id)
 );
+
+CREATE TABLE IF NOT EXISTS coupons (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  discount_amount REAL NOT NULL,
+  max_uses INTEGER DEFAULT 1,
+  times_used INTEGER DEFAULT 0,
+  is_active INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

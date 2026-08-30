@@ -7,6 +7,7 @@ import upload from './routes/upload'
 import payment from './routes/payment'
 import reader from './routes/reader'
 import user from './routes/user'
+import coupons from './routes/coupons'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -31,5 +32,6 @@ app.route('/api/upload', upload)
 app.route('/api/payment', payment)
 app.route('/api/reader', reader)
 app.route('/api/user', user)
+app.route('/api/coupons', coupons)
 
 export default app
