@@ -198,7 +198,7 @@ export function BookDetail() {
 
                 {/* DM for Student Discount Button */}
                 <a
-                  href="https://www.instagram.com/reel/DckwPNwoZMH/?igsi=bXIybWhsM3N1ZWtt"
+                  href="https://www.instagram.com/historified_in"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full sm:w-auto bg-cream-50 hover:bg-cream-200 text-brown-900 border border-cream-300 px-5 py-3.5 rounded-md font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm no-underline whitespace-nowrap"
