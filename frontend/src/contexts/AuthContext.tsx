@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, googleProvider } from '../config/firebase';
 import { type User, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
+import { api } from '../lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -17,9 +18,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+
+      if (currentUser) {
+        // Sync user profile to backend D1 database
+        try {
+          await api.get('/user/me');
+        } catch (e) {
+          console.error('Failed to sync user to D1 database', e);
+        }
+      }
     });
 
     return () => unsubscribe();

@@ -37,8 +37,22 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables:
       role: 'user'
     }
 
-    if (c.env.ADMIN_EMAIL && user.email.toLowerCase() === c.env.ADMIN_EMAIL.toLowerCase()) {
+    const rawAdminEmails = c.env.ADMIN_EMAILS || c.env.ADMIN_EMAIL || ''
+    const adminEmails = rawAdminEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+    if (adminEmails.includes(user.email.toLowerCase().trim())) {
       user.role = 'admin'
+    }
+
+    // Automatically sync/upsert user record to D1 users table
+    if (c.env.DB && user.id) {
+      c.env.DB.prepare(`
+        INSERT INTO users (id, email, name, role)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          email = excluded.email,
+          name = excluded.name,
+          role = excluded.role
+      `).bind(user.id, user.email, user.name, user.role).run().catch(() => {})
     }
 
     c.set('user', user)
