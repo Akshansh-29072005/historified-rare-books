@@ -1,6 +1,11 @@
 import { auth } from '../config/firebase';
 
-const BASE_URL = 'https://backend.akshanshkhairwar2.workers.dev/api';
+export function getApiBaseUrl() {
+  if (typeof window !== 'undefined' && window.location.hostname.includes('staging')) {
+    return 'https://backend-staging.akshanshkhairwar2.workers.dev/api';
+  }
+  return 'https://backend.akshanshkhairwar2.workers.dev/api';
+}
 
 async function getHeaders() {
   const headers: Record<string, string> = {
@@ -17,7 +22,8 @@ async function getHeaders() {
 
 export const api = {
   async get(endpoint: string) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'GET',
       headers: await getHeaders(),
     });
@@ -29,7 +35,8 @@ export const api = {
   },
   
   async post(endpoint: string, data: any) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: await getHeaders(),
       body: JSON.stringify(data),
@@ -42,12 +49,13 @@ export const api = {
   },
   
   async uploadFile(endpoint: string, formData: FormData) {
+    const baseUrl = getApiBaseUrl();
     const headers: Record<string, string> = {};
     if (auth.currentUser) {
       const token = await auth.currentUser.getIdToken();
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers,
       body: formData,
@@ -60,7 +68,8 @@ export const api = {
   },
   
   async put(endpoint: string, data: any) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: await getHeaders(),
       body: JSON.stringify(data),
@@ -73,7 +82,8 @@ export const api = {
   },
   
   async delete(endpoint: string) {
-    const response = await fetch(`${BASE_URL}${endpoint}`, {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: await getHeaders(),
     });
