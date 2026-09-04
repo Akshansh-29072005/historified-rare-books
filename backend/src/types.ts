@@ -6,6 +6,7 @@ export type Bindings = {
   CASHFREE_API_URL: string
   FIREBASE_PROJECT_ID: string
   ADMIN_EMAIL: string
+  BREVO_API_KEY?: string
 }
 
 export type User = {
