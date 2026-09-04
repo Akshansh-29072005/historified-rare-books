@@ -147,7 +147,7 @@ export function Admin() {
     const pageIndices = Array.from({ length: pageCount }, (_, i) => i);
     const copiedPages = await sampleDoc.copyPages(srcDoc, pageIndices);
     
-    copiedPages.forEach((page) => sampleDoc.addPage(page));
+    copiedPages.forEach((page: any) => sampleDoc.addPage(page));
     
     const samplePdfBytes = await sampleDoc.save();
     return new Blob([samplePdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
