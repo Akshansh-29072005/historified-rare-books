@@ -21,28 +21,10 @@ async function servePdfFromR2(
 ): Promise<Response> {
   const rangeHeader = c.req.header('Range')
 
-  let r2Range: any = undefined
-  if (rangeHeader) {
-    // e.g. "bytes=0-262143"
-    const match = rangeHeader.match(/bytes=(\d+)-(\d+)?/)
-    if (match) {
-      const offset = parseInt(match[1], 10)
-      r2Range = { offset }
-      if (match[2]) {
-        r2Range.length = parseInt(match[2], 10) - offset + 1
-      }
-    }
-  }
-
-  // Fetch from R2 with optional range
-  let object: R2ObjectBody | null
-  if (r2Range) {
-    object = await c.env.R2_BUCKET.get(r2Key, {
-      range: r2Range,
-    }) as R2ObjectBody | null
-  } else {
-    object = await c.env.R2_BUCKET.get(r2Key) as R2ObjectBody | null
-  }
+  // Fetch from R2 with optional range automatically handled by Cloudflare
+  let object = await c.env.R2_BUCKET.get(r2Key, {
+    range: c.req.raw.headers,
+  }) as R2ObjectBody | null
 
   if (!object) {
     return c.json({ error: 'PDF file not found in storage' }, 404)
@@ -56,9 +38,8 @@ async function servePdfFromR2(
   headers.set('cache-control', cacheControl)
 
   // If we requested a range and R2 fulfilled it (or we manually requested a range and got the object)
-  // R2 sets object.range when a range request is fulfilled
   const fulfilledRange = (object as any).range
-  if (r2Range && fulfilledRange) {
+  if (rangeHeader && fulfilledRange) {
     const size = (object as any).size || 0
     if ('offset' in fulfilledRange && 'length' in fulfilledRange) {
       headers.set('content-range', `bytes ${fulfilledRange.offset}-${fulfilledRange.offset + fulfilledRange.length - 1}/${size}`)
