@@ -12,13 +12,20 @@ const reader = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 reader.get('/:bookId/sample-pdf', async (c) => {
   const bookId = c.req.param('bookId')
 
-  const book = await c.env.DB.prepare('SELECT pdf_r2_key FROM books WHERE id = ?').bind(bookId).first<{ pdf_r2_key: string }>()
+  const book = await c.env.DB.prepare(
+    'SELECT pdf_r2_key, sample_pdf_r2_key FROM books WHERE id = ?'
+  ).bind(bookId).first<{ pdf_r2_key: string, sample_pdf_r2_key?: string }>()
   
-  if (!book || !book.pdf_r2_key) {
+  if (!book) {
+    return c.json({ error: 'Book not found' }, 404)
+  }
+
+  const keyToServe = book.sample_pdf_r2_key || book.pdf_r2_key
+  if (!keyToServe) {
     return c.json({ error: 'PDF not found for this book' }, 404)
   }
 
-  const object = await c.env.R2_BUCKET.get(book.pdf_r2_key)
+  const object = await c.env.R2_BUCKET.get(keyToServe)
 
   if (!object) {
     return c.json({ error: 'PDF file not found in storage' }, 404)
@@ -28,6 +35,9 @@ reader.get('/:bookId/sample-pdf', async (c) => {
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
   headers.set('content-type', 'application/pdf')
+  headers.set('access-control-allow-origin', '*')
+  headers.set('access-control-allow-headers', 'Authorization, Content-Type, Range')
+  headers.set('access-control-expose-headers', 'Content-Length, Content-Type, ETag')
 
   return new Response(object.body, {
     headers
@@ -70,6 +80,9 @@ reader.get('/:bookId/pdf', async (c) => {
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
   headers.set('content-type', 'application/pdf')
+  headers.set('access-control-allow-origin', '*')
+  headers.set('access-control-allow-headers', 'Authorization, Content-Type, Range')
+  headers.set('access-control-expose-headers', 'Content-Length, Content-Type, ETag')
 
   return new Response(object.body, {
     headers

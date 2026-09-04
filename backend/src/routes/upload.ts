@@ -21,6 +21,7 @@ upload.get('/cover/:filename', async (c) => {
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
   headers.set('cache-control', 'public, max-age=31536000')
+  headers.set('access-control-allow-origin', '*')
   return new Response(object.body, { headers })
 })
 
@@ -64,7 +65,9 @@ upload.post('/cover', authMiddleware, adminMiddleware, async (c) => {
       httpMetadata: { contentType: file.type }
     })
 
-    const publicUrl = `https://backend.akshanshkhairwar2.workers.dev/api/upload/cover/${filename}`
+    // Dynamic origin so staging uses staging domain and production uses production domain
+    const origin = new URL(c.req.url).origin
+    const publicUrl = `${origin}/api/upload/cover/${filename}`
 
     return c.json({ key, url: publicUrl, cover_url: publicUrl, message: 'Cover uploaded successfully' })
   } catch (error) {
