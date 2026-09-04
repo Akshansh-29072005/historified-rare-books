@@ -35,6 +35,7 @@ export function Admin() {
   
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatusText, setUploadStatusText] = useState('Publishing...');
 
   // Coupon Form state
   const [couponCode, setCouponCode] = useState('');
@@ -113,6 +114,7 @@ export function Admin() {
     setExistingSamplePdfKey(null);
     setUploading(false);
     setUploadProgress(0);
+    setUploadStatusText('Publishing...');
   };
 
   const handleEditClick = (book: any) => {
@@ -133,13 +135,18 @@ export function Admin() {
   // Helper to extract first 5 pages of a PDF into a 1.5MB sample Blob
   const extractFirst5PagesBlob = async (file: File): Promise<Blob> => {
     const arrayBuffer = await file.arrayBuffer();
-    const srcDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
+    const srcDoc = await PDFDocument.load(arrayBuffer, { 
+      ignoreEncryption: true,
+      throwOnInvalidObject: false 
+    });
+    
     const sampleDoc = await PDFDocument.create();
+    const totalPages = srcDoc.getPageCount();
+    const pageCount = Math.min(5, totalPages);
     
-    const pageCount = Math.min(5, srcDoc.getPageCount());
     const pageIndices = Array.from({ length: pageCount }, (_, i) => i);
-    
     const copiedPages = await sampleDoc.copyPages(srcDoc, pageIndices);
+    
     copiedPages.forEach((page) => sampleDoc.addPage(page));
     
     const samplePdfBytes = await sampleDoc.save();
@@ -161,6 +168,7 @@ export function Admin() {
     try {
       setUploading(true);
       setUploadProgress(10);
+      setUploadStatusText('Preparing upload...');
       
       let pdf_r2_key = existingPdfKey;
       let sample_pdf_r2_key = existingSamplePdfKey;
@@ -168,6 +176,7 @@ export function Admin() {
 
       // 1. Upload Main PDF
       if (pdfFile) {
+        setUploadStatusText('Uploading main PDF file...');
         setUploadProgress(25);
         const pdfFormData = new FormData();
         pdfFormData.append('file', pdfFile);
@@ -176,27 +185,36 @@ export function Admin() {
 
         // 2. Auto-generate 5-page sample preview (~1.5 MB)
         try {
+          setUploadStatusText('Extracting 5-page sample preview...');
           setUploadProgress(50);
           const sampleBlob = await extractFirst5PagesBlob(pdfFile);
+          
+          setUploadStatusText('Uploading 5-page sample preview...');
+          setUploadProgress(65);
           const sampleFile = new File([sampleBlob], `sample_${pdfFile.name}`, { type: 'application/pdf' });
           const sampleFormData = new FormData();
           sampleFormData.append('file', sampleFile);
           const sampleData = await api.uploadFile('/upload/pdf', sampleFormData);
           sample_pdf_r2_key = sampleData.key || sampleData.pdf_r2_key;
+          console.log('Sample PDF key generated & uploaded:', sample_pdf_r2_key);
         } catch (sampleErr) {
-          console.error('Failed to auto-generate 5-page sample', sampleErr);
+          console.error('Sample generation failed, using main PDF key as fallback:', sampleErr);
+          // Fallback to main PDF key if extraction fails
+          sample_pdf_r2_key = pdf_r2_key;
         }
       }
       
       // 3. Upload Cover Image
       if (coverFile) {
-        setUploadProgress(75);
+        setUploadStatusText('Uploading cover image...');
+        setUploadProgress(80);
         const coverFormData = new FormData();
         coverFormData.append('file', coverFile);
         const coverData = await api.uploadFile('/upload/cover', coverFormData);
         cover_url = coverData.url || coverData.cover_url;
       }
       
+      setUploadStatusText('Saving book to database...');
       setUploadProgress(90);
 
       // 4. Save or update book in D1 database
@@ -223,6 +241,7 @@ export function Admin() {
       }
 
       setUploadProgress(100);
+      setUploadStatusText('Done!');
       
       setTimeout(() => {
         alert(editingBookId ? 'Book updated successfully!' : 'Book published successfully!');
@@ -235,6 +254,7 @@ export function Admin() {
       alert(`Failed: ${error.message || 'An error occurred'}`);
       setUploading(false);
       setUploadProgress(0);
+      setUploadStatusText('Publishing...');
     }
   };
 
@@ -494,7 +514,7 @@ export function Admin() {
                       ></div>
                       <span className="relative z-10 flex items-center justify-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cream-50"></div>
-                        Publishing... {uploadProgress}%
+                        {uploadStatusText} ({uploadProgress}%)
                       </span>
                     </>
                   ) : (
