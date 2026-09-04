@@ -230,6 +230,11 @@ export function Reader() {
             <div className="relative inline-block my-auto">
               <Document
                 file={pdfDoc}
+                options={{
+                  disableAutoFetch: true,
+                  disableStream: true,
+                  rangeChunkSize: 262144, // 256 KB
+                }}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={(err) => setErrorMsg(err.message || 'Error loading PDF')}
                 className="flex flex-col items-center max-w-full"
