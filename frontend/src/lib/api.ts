@@ -1,9 +1,6 @@
 import { auth } from '../config/firebase';
 
 export function getApiBaseUrl() {
-  if (typeof window !== 'undefined' && window.location.hostname.includes('staging')) {
-    return 'https://backend-staging.akshanshkhairwar2.workers.dev/api';
-  }
   return 'https://backend.akshanshkhairwar2.workers.dev/api';
 }
 
