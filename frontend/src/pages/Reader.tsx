@@ -232,7 +232,6 @@ export function Reader() {
                 file={pdfDoc}
                 options={{
                   disableAutoFetch: true,
-                  disableStream: true,
                   rangeChunkSize: 262144, // 256 KB
                 }}
                 onLoadSuccess={onDocumentLoadSuccess}
