@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -26,6 +26,9 @@ export function Reader() {
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 70);
   
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Memoize file object to prevent re-triggering getDocument on page turns & ArrayBuffer detachment
+  const fileSource = useMemo(() => (pdfData ? { data: pdfData.slice(0) } : null), [pdfData]);
 
   // Responsive page height calculation
   useEffect(() => {
@@ -237,10 +240,10 @@ export function Reader() {
 
         {/* PDF Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {pdfData && (
+          {fileSource && (
             <div className="relative inline-block my-auto">
               <Document
-                file={{ data: pdfData }}
+                file={fileSource}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={(err) => setErrorMsg(err.message || 'Error loading PDF')}
                 className="flex flex-col items-center max-w-full"

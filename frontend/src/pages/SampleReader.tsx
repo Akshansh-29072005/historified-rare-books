@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -23,6 +23,9 @@ export function SampleReader() {
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 110);
   
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Memoize file object to prevent re-triggering getDocument on page turns & ArrayBuffer detachment
+  const fileSource = useMemo(() => (pdfData ? { data: pdfData.slice(0) } : null), [pdfData]);
 
   // Responsive page height
   useEffect(() => {
@@ -178,9 +181,9 @@ export function SampleReader() {
 
         {/* PDF Document Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {pdfData && (
+          {fileSource && (
             <Document
-              file={{ data: pdfData }}
+              file={fileSource}
               onLoadError={(err) => setErrorMsg(err.message || 'Error parsing sample PDF')}
               className="flex flex-col items-center max-w-full"
               loading={
