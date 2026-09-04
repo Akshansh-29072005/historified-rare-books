@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -17,15 +17,12 @@ export function SampleReader() {
   
   const [book, setBook] = useState<any>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 110);
   
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Memoize file object to prevent re-triggering getDocument on page turns & ArrayBuffer detachment
-  const fileSource = useMemo(() => (pdfData ? { data: pdfData.slice(0) } : null), [pdfData]);
 
   // Responsive page height
   useEffect(() => {
@@ -36,8 +33,10 @@ export function SampleReader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch book details & sample PDF ArrayBuffer
+  // Fetch book details & sample PDF as Blob URL
   useEffect(() => {
+    let createdUrl: string | null = null;
+
     const initSample = async () => {
       try {
         setLoading(true);
@@ -58,8 +57,9 @@ export function SampleReader() {
             throw new Error(errData.error || `Failed to fetch sample PDF (${res.status})`);
           }
 
-          const arrayBuffer = await res.arrayBuffer();
-          setPdfData(new Uint8Array(arrayBuffer));
+          const blob = await res.blob();
+          createdUrl = URL.createObjectURL(blob);
+          setPdfUrl(createdUrl);
         }
       } catch (error: any) {
         console.error('Error initializing sample PDF', error);
@@ -70,6 +70,12 @@ export function SampleReader() {
     };
 
     initSample();
+
+    return () => {
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
   }, [id]);
 
   const changePage = (offset: number) => {
@@ -181,9 +187,9 @@ export function SampleReader() {
 
         {/* PDF Document Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {fileSource && (
+          {pdfUrl && (
             <Document
-              file={fileSource}
+              file={pdfUrl}
               onLoadError={(err) => setErrorMsg(err.message || 'Error parsing sample PDF')}
               className="flex flex-col items-center max-w-full"
               loading={

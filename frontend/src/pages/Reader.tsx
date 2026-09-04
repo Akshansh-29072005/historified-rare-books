@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -18,7 +18,7 @@ export function Reader() {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
-  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingText, setLoadingText] = useState('Connecting to manuscript stream...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -26,9 +26,6 @@ export function Reader() {
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 70);
   
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Memoize file object to prevent re-triggering getDocument on page turns & ArrayBuffer detachment
-  const fileSource = useMemo(() => (pdfData ? { data: pdfData.slice(0) } : null), [pdfData]);
 
   // Responsive page height calculation
   useEffect(() => {
@@ -39,12 +36,14 @@ export function Reader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch PDF ArrayBuffer with Auth Token on main thread
+  // Fetch PDF Blob URL with Auth Token
   useEffect(() => {
     if (!user) {
       navigate('/');
       return;
     }
+
+    let createdUrl: string | null = null;
 
     const initPdfAndProgress = async () => {
       try {
@@ -70,8 +69,9 @@ export function Reader() {
           }
 
           setLoadingText('Processing pages...');
-          const arrayBuffer = await res.arrayBuffer();
-          setPdfData(new Uint8Array(arrayBuffer));
+          const blob = await res.blob();
+          createdUrl = URL.createObjectURL(blob);
+          setPdfUrl(createdUrl);
           
           try {
             const progress = await api.get(`/reader/${id}/progress`);
@@ -90,6 +90,12 @@ export function Reader() {
     };
 
     initPdfAndProgress();
+
+    return () => {
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
   }, [id, user, navigate]);
 
   // Auto-save progress
@@ -240,10 +246,10 @@ export function Reader() {
 
         {/* PDF Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {fileSource && (
+          {pdfUrl && (
             <div className="relative inline-block my-auto">
               <Document
-                file={fileSource}
+                file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={(err) => setErrorMsg(err.message || 'Error loading PDF')}
                 className="flex flex-col items-center max-w-full"
