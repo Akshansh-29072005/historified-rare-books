@@ -21,11 +21,24 @@ async function servePdfFromR2(
 ): Promise<Response> {
   const rangeHeader = c.req.header('Range')
 
+  let r2Range: any = undefined
+  if (rangeHeader) {
+    // e.g. "bytes=0-262143"
+    const match = rangeHeader.match(/bytes=(\d+)-(\d+)?/)
+    if (match) {
+      const offset = parseInt(match[1], 10)
+      r2Range = { offset }
+      if (match[2]) {
+        r2Range.length = parseInt(match[2], 10) - offset + 1
+      }
+    }
+  }
+
   // Fetch from R2 with optional range
   let object: R2ObjectBody | null
-  if (rangeHeader) {
+  if (r2Range) {
     object = await c.env.R2_BUCKET.get(r2Key, {
-      range: c.req.raw.headers,
+      range: r2Range,
     }) as R2ObjectBody | null
   } else {
     object = await c.env.R2_BUCKET.get(r2Key) as R2ObjectBody | null
@@ -42,18 +55,14 @@ async function servePdfFromR2(
   headers.set('accept-ranges', 'bytes')
   headers.set('cache-control', cacheControl)
 
-  // CORS headers for cross-origin PDF.js requests
-  headers.set('access-control-allow-origin', '*')
-  headers.set('access-control-allow-headers', 'Authorization, Content-Type, Range')
-  headers.set('access-control-expose-headers', 'Content-Length, Content-Range, Content-Type, ETag, Accept-Ranges')
-
-  // If R2 returned a range, send 206 Partial Content
-  const r2Range = (object as any).range
-  if (rangeHeader && r2Range) {
+  // If we requested a range and R2 fulfilled it (or we manually requested a range and got the object)
+  // R2 sets object.range when a range request is fulfilled
+  const fulfilledRange = (object as any).range
+  if (r2Range && fulfilledRange) {
     const size = (object as any).size || 0
-    if ('offset' in r2Range && 'length' in r2Range) {
-      headers.set('content-range', `bytes ${r2Range.offset}-${r2Range.offset + r2Range.length - 1}/${size}`)
-      headers.set('content-length', String(r2Range.length))
+    if ('offset' in fulfilledRange && 'length' in fulfilledRange) {
+      headers.set('content-range', `bytes ${fulfilledRange.offset}-${fulfilledRange.offset + fulfilledRange.length - 1}/${size}`)
+      headers.set('content-length', String(fulfilledRange.length))
     }
     return new Response(object.body, { status: 206, headers })
   }
