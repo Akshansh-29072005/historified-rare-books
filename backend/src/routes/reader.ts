@@ -25,12 +25,6 @@ async function servePdfFromR2(
   let object: R2ObjectBody | null
   if (rangeHeader) {
     object = await c.env.R2_BUCKET.get(r2Key, {
-      range: { suffix: undefined },  // Will be overridden below
-    }) as R2ObjectBody | null
-
-    // Re-fetch with proper range parsing
-    // R2 accepts the standard HTTP Range header format
-    object = await c.env.R2_BUCKET.get(r2Key, {
       range: c.req.raw.headers,
     }) as R2ObjectBody | null
   } else {
