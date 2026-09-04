@@ -29,6 +29,6 @@ binding = "R2_BUCKET"
 bucket_name = "book-pdfs-staging"
 
 [env.staging.vars]
-CASHFREE_API_URL = "https://api.cashfree.com/pg"
+CASHFREE_API_URL = "https://sandbox.cashfree.com/pg"
 FIREBASE_PROJECT_ID = "940530617921"
 ADMIN_EMAIL = "akshanshkhairwar@gmail.com"

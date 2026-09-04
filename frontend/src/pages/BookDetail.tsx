@@ -126,9 +126,14 @@ export function BookDetail() {
     try {
       setProcessing(true);
       
-      // 1. Initialize Cashfree SDK in PRODUCTION mode
+      // 1. Initialize Cashfree SDK (sandbox on staging/localhost, production on prod)
+      const isStaging = typeof window !== 'undefined' && (
+        window.location.hostname.includes('staging') || 
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1'
+      );
       const cashfree = await load({
-        mode: 'production',
+        mode: isStaging ? 'sandbox' : 'production',
       });
       
       // 2. Call backend to create order (passing applied coupon code if any)
