@@ -44,12 +44,15 @@ webhook.post('/cashfree', async (c) => {
 
         if (user && user.email && book) {
           const emailHtml = getPurchaseThankYouEmailHtml(book.title, book.price, orderId)
-          await sendBrevoEmail(c.env.BREVO_API_KEY, {
-            toEmail: user.email,
-            toName: user.name || user.email,
-            subject: `Order Confirmed: ${book.title} - Historified`,
-            htmlContent: emailHtml
-          })
+          // Send email in background — don't block webhook response
+          c.executionCtx.waitUntil(
+            sendBrevoEmail(c.env.BREVO_API_KEY, {
+              toEmail: user.email,
+              toName: user.name || user.email,
+              subject: `Order Confirmed: ${book.title} - Historified`,
+              htmlContent: emailHtml
+            })
+          )
         }
       }
 

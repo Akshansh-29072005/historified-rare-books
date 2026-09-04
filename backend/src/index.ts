@@ -20,7 +20,7 @@ app.use(
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'Range', 'x-webhook-signature', 'x-webhook-timestamp'],
     exposeHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
-    maxAge: 600,
+    maxAge: 86400,
     credentials: true,
   })
 )

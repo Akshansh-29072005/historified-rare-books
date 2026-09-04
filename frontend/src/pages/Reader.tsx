@@ -7,8 +7,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, ArrowLeft } from 'lucide-react';
 import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker matching the exact pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Setup pdf.js worker to local self-hosted file
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +18,7 @@ export function Reader() {
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [loadingText, setLoadingText] = useState('Connecting to manuscript stream...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -36,14 +36,12 @@ export function Reader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch PDF Blob URL with Auth Token
+  // Fetch PDF with Auth Token and Progress
   useEffect(() => {
     if (!user) {
       navigate('/');
       return;
     }
-
-    let createdUrl: string | null = null;
 
     const initPdfAndProgress = async () => {
       try {
@@ -54,31 +52,31 @@ export function Reader() {
         if (id) {
           const token = await user.getIdToken();
           const baseUrl = getApiBaseUrl();
+          const pdfUrl = `${baseUrl}/reader/${id}/pdf`;
           
-          setLoadingText('Downloading digital manuscript...');
+          setLoadingText('Loading digital manuscript...');
           
-          const res = await fetch(`${baseUrl}/reader/${id}/pdf`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+          const loadingTask = pdfjs.getDocument({
+            url: pdfUrl,
+            httpHeaders: { 'Authorization': `Bearer ${token}` },
+            rangeChunkSize: 262144, // 256 KB chunks
           });
 
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || errData.details || `Failed to load manuscript (${res.status})`);
-          }
+          const progressPromise = api.get(`/reader/${id}/progress`).catch(err => {
+            console.error('Error fetching progress', err);
+            return null;
+          });
 
-          setLoadingText('Processing pages...');
-          const blob = await res.blob();
-          createdUrl = URL.createObjectURL(blob);
-          setPdfUrl(createdUrl);
+          const [pdfDocument, progress] = await Promise.all([
+            loadingTask.promise,
+            progressPromise
+          ]);
+
+          setPdfDoc(pdfDocument);
           
-          try {
-            const progress = await api.get(`/reader/${id}/progress`);
+          if (progress) {
             if (progress.last_read_page) setPageNumber(progress.last_read_page);
             if (progress.bookmarks) setBookmarks(typeof progress.bookmarks === 'string' ? JSON.parse(progress.bookmarks) : progress.bookmarks);
-          } catch (err) {
-            console.error('Error fetching progress', err);
           }
         }
       } catch (error: any) {
@@ -90,12 +88,6 @@ export function Reader() {
     };
 
     initPdfAndProgress();
-
-    return () => {
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
-      }
-    };
   }, [id, user, navigate]);
 
   // Auto-save progress
@@ -246,10 +238,10 @@ export function Reader() {
 
         {/* PDF Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {pdfUrl && (
+          {pdfDoc && (
             <div className="relative inline-block my-auto">
               <Document
-                file={pdfUrl}
+                file={pdfDoc}
                 onLoadSuccess={onDocumentLoadSuccess}
                 onLoadError={(err) => setErrorMsg(err.message || 'Error loading PDF')}
                 className="flex flex-col items-center max-w-full"

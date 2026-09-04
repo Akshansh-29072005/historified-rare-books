@@ -12,7 +12,8 @@ const books = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 // Get all books (public)
 books.get('/', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare('SELECT id, title, author, price, cover_url, description, pdf_r2_key, sample_pdf_r2_key FROM books').all()
+    const { results } = await c.env.DB.prepare('SELECT id, title, author, price, cover_url FROM books').all()
+    c.header('Cache-Control', 'public, s-maxage=300, max-age=60')
     return c.json({ books: results || [] })
   } catch (error) {
     return c.json({ error: 'Failed to fetch books', details: (error as Error).message }, 500)
@@ -29,6 +30,7 @@ books.get('/:id', async (c) => {
       return c.json({ error: 'Book not found' }, 404)
     }
     
+    c.header('Cache-Control', 'public, s-maxage=300, max-age=60')
     return c.json({ book })
   } catch (error) {
     return c.json({ error: 'Failed to fetch book', details: (error as Error).message }, 500)

@@ -6,8 +6,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, ArrowLeft, ShoppingBag, Lock } from 'lucide-react';
 import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker matching the exact pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Setup pdf.js worker to local self-hosted file
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const MAX_SAMPLE_PAGES = 5;
 
@@ -33,10 +33,8 @@ export function SampleReader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch book details & sample PDF as Blob URL
+  // Fetch book details & set sample PDF URL
   useEffect(() => {
-    let createdUrl: string | null = null;
-
     const initSample = async () => {
       try {
         setLoading(true);
@@ -51,15 +49,8 @@ export function SampleReader() {
           }
 
           const baseUrl = getApiBaseUrl();
-          const res = await fetch(`${baseUrl}/reader/${id}/sample-pdf`);
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || `Failed to fetch sample PDF (${res.status})`);
-          }
-
-          const blob = await res.blob();
-          createdUrl = URL.createObjectURL(blob);
-          setPdfUrl(createdUrl);
+          const samplePdfUrl = `${baseUrl}/reader/${id}/sample-pdf`;
+          setPdfUrl(samplePdfUrl);
         }
       } catch (error: any) {
         console.error('Error initializing sample PDF', error);
@@ -70,12 +61,6 @@ export function SampleReader() {
     };
 
     initSample();
-
-    return () => {
-      if (createdUrl) {
-        URL.revokeObjectURL(createdUrl);
-      }
-    };
   }, [id]);
 
   const changePage = (offset: number) => {

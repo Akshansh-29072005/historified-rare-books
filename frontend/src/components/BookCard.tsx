@@ -26,6 +26,7 @@ export function BookCard({ id, title, author, price, coverUrl, cover_url, gradie
               alt={title} 
               className="w-full h-full object-cover" 
               onError={() => setImgError(true)}
+              loading="lazy"
             />
           ) : (
             <>

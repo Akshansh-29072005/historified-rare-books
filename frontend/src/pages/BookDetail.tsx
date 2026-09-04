@@ -27,48 +27,73 @@ export function BookDetail() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
+  const [cashfreeInstance, setCashfreeInstance] = useState<any>(null);
+
+  useEffect(() => {
+    const isStaging = typeof window !== 'undefined' && (
+      window.location.hostname.includes('staging') || 
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1'
+    );
+    load({ mode: isStaging ? 'sandbox' : 'production' }).then(setCashfreeInstance).catch(console.error);
+  }, []);
+
   useEffect(() => {
     const fetchBookAndStatus = async () => {
       try {
         setLoading(true);
         if (id) {
-          const bookData = await api.get(`/books/${id}`);
-          setBook(bookData.book);
+          // Check URL for Cashfree redirect verification
+          const searchParams = new URLSearchParams(window.location.search);
+          const orderId = searchParams.get('order_id');
+          const urlCoupon = searchParams.get('coupon');
+          
+          let verifyPromise = Promise.resolve(false);
+          if (user && orderId) {
+            verifyPromise = api.post('/payment/verify', { 
+              orderId,
+              couponCode: urlCoupon || undefined
+            }).then(verifyRes => {
+              if (verifyRes.status === 'COMPLETED') {
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return true;
+              }
+              return false;
+            }).catch(err => {
+              console.error('Order verification error', err);
+              return false;
+            });
+          }
+
+          const bookPromise = api.get(`/books/${id}`);
+          let purchasesPromise = Promise.resolve({ purchases: [] });
           
           if (user) {
-            // Check if order_id and coupon are present in URL from Cashfree redirect
-            const searchParams = new URLSearchParams(window.location.search);
-            const orderId = searchParams.get('order_id');
-            const urlCoupon = searchParams.get('coupon');
-            
-            if (orderId) {
-              try {
-                const verifyRes = await api.post('/payment/verify', { 
-                  orderId,
-                  couponCode: urlCoupon || undefined
-                });
-                if (verifyRes.status === 'COMPLETED') {
-                  setHasPurchased(true);
-                  window.history.replaceState({}, document.title, window.location.pathname);
-                }
-              } catch (verifyErr) {
-                console.error('Order verification error', verifyErr);
-              }
-            }
-
-            try {
-              const purchasesData = await api.get('/user/purchases');
-              const purchased = purchasesData.purchases?.some((p: any) => p.id === id || p.book_id === id);
-              if (purchased) {
-                setHasPurchased(true);
-              }
-            } catch (err) {
+            purchasesPromise = api.get('/user/purchases').catch(err => {
               console.error('Error fetching user purchases', err);
+              return { purchases: [] };
+            });
+          }
+
+          const [bookData, purchasesData, isVerified] = await Promise.all([
+            bookPromise,
+            purchasesPromise,
+            verifyPromise
+          ]);
+          
+          setBook(bookData.book);
+          
+          if (isVerified) {
+            setHasPurchased(true);
+          } else if (user) {
+            const purchased = purchasesData.purchases?.some((p: any) => p.id === id || p.book_id === id);
+            if (purchased) {
+              setHasPurchased(true);
             }
           }
         }
       } catch (error) {
-        console.error('Error fetching book', error);
+        console.error('Error fetching data', error);
       } finally {
         setLoading(false);
       }
@@ -132,7 +157,7 @@ export function BookDetail() {
         window.location.hostname === 'localhost' || 
         window.location.hostname === '127.0.0.1'
       );
-      const cashfree = await load({
+      const cashfree = cashfreeInstance || await load({
         mode: isStaging ? 'sandbox' : 'production',
       });
       
@@ -195,6 +220,7 @@ export function BookDetail() {
                 alt={book.title} 
                 className="w-full h-full object-cover" 
                 onError={() => setImgError(true)}
+                fetchPriority="high"
               />
             ) : (
               <div className="relative z-10 w-full p-8 md:p-12">

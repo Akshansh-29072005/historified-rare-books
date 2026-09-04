@@ -43,17 +43,7 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables:
       user.role = 'admin'
     }
 
-    // Automatically sync/upsert user record to D1 users table
-    if (c.env.DB && user.id) {
-      c.env.DB.prepare(`
-        INSERT INTO users (id, email, name, role)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          email = excluded.email,
-          name = excluded.name,
-          role = excluded.role
-      `).bind(user.id, user.email, user.name, user.role).run().catch(() => {})
-    }
+    // Note: User record sync happens only in GET /user/me, not on every request
 
     c.set('user', user)
     await next()
