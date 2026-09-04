@@ -52,28 +52,16 @@ export function Reader() {
         if (id) {
           const token = await user.getIdToken();
           const baseUrl = getApiBaseUrl();
-          const pdfUrl = `${baseUrl}/reader/${id}/pdf`;
+          // Pass token via query param so we don't need custom headers (which breaks PDF.js range chunking)
+          const pdfUrl = `${baseUrl}/reader/${id}/pdf?token=${token}`;
           
-          setLoadingText('Loading digital manuscript...');
-          
-          const loadingTask = pdfjs.getDocument({
-            url: pdfUrl,
-            httpHeaders: { 'Authorization': `Bearer ${token}` },
-            rangeChunkSize: 262144, // 256 KB chunks
-          });
+          setPdfDoc(pdfUrl);
 
-          const progressPromise = api.get(`/reader/${id}/progress`).catch(err => {
+          const progress = await api.get(`/reader/${id}/progress`).catch(err => {
             console.error('Error fetching progress', err);
             return null;
           });
 
-          const [pdfDocument, progress] = await Promise.all([
-            loadingTask.promise,
-            progressPromise
-          ]);
-
-          setPdfDoc(pdfDocument);
-          
           if (progress) {
             if (progress.last_read_page) setPageNumber(progress.last_read_page);
             if (progress.bookmarks) setBookmarks(typeof progress.bookmarks === 'string' ? JSON.parse(progress.bookmarks) : progress.bookmarks);
