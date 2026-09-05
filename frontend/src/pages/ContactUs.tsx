@@ -1,14 +1,30 @@
 import { useState } from 'react';
+import { api } from '../lib/api';
 
 export function ContactUs() {
   const [submitted, setSubmitted] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setIsSubmitting(true);
+    setError('');
+    
+    try {
+      await api.post('/contact', { name, email, message });
+      setSubmitted(true);
+      setName('');
+      setEmail('');
+      setMessage('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to send message. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -98,11 +114,13 @@ export function ContactUs() {
                 />
               </div>
 
+              {error && <p className="text-red-600 text-sm">{error}</p>}
               <button 
                 type="submit" 
-                className="w-full bg-brown-900 text-cream-50 py-3 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer"
+                disabled={isSubmitting}
+                className="w-full bg-brown-900 text-cream-50 py-3 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer disabled:opacity-50"
               >
-                Send Message
+                {isSubmitting ? 'Sending...' : 'Send Message'}
               </button>
             </form>
           )}
