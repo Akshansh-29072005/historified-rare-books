@@ -25,7 +25,7 @@ export async function sendBrevoEmail(apiKey: string | undefined, options: SendEm
       body: JSON.stringify({
         sender: {
           name: 'Historified Rare Books',
-          email: 'support@historified.in',
+          email: 'historified.rare.books@gmail.com',
         },
         to: [
           {
