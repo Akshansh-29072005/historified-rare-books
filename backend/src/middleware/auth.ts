@@ -2,14 +2,17 @@ import { Context, Next } from 'hono'
 import { Bindings, User } from '../types'
 
 export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables: { user: User } }>, next: Next) {
-  const authHeader = c.req.header('Authorization')
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return c.json({ error: 'Missing or invalid Authorization header' }, 401)
+  let token = c.req.query('token')
+  
+  if (!token) {
+    const authHeader = c.req.header('Authorization')
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]
+    }
   }
 
-  const token = authHeader.split(' ')[1]
   if (!token) {
-    return c.json({ error: 'Token missing' }, 401)
+    return c.json({ error: 'Missing or invalid token' }, 401)
   }
 
   try {
@@ -43,17 +46,7 @@ export async function authMiddleware(c: Context<{ Bindings: Bindings, Variables:
       user.role = 'admin'
     }
 
-    // Automatically sync/upsert user record to D1 users table
-    if (c.env.DB && user.id) {
-      c.env.DB.prepare(`
-        INSERT INTO users (id, email, name, role)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          email = excluded.email,
-          name = excluded.name,
-          role = excluded.role
-      `).bind(user.id, user.email, user.name, user.role).run().catch(() => {})
-    }
+    // Note: User record sync happens only in GET /user/me, not on every request
 
     c.set('user', user)
     await next()

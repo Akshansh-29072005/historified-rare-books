@@ -4,10 +4,10 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, ArrowLeft, ShoppingBag, Lock } from 'lucide-react';
-import { api } from '../lib/api';
+import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker matching the exact pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Setup pdf.js worker to local self-hosted file
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const MAX_SAMPLE_PAGES = 5;
 
@@ -19,7 +19,6 @@ export function SampleReader() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingText, setLoadingText] = useState('Fetching sample stream...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 110);
   
@@ -34,17 +33,14 @@ export function SampleReader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch book metadata and sample PDF stream
+  // Fetch book details & set sample PDF URL
   useEffect(() => {
-    let createdObjectUrl: string | null = null;
-
-    const fetchSample = async () => {
+    const initSample = async () => {
       try {
         setLoading(true);
         setErrorMsg(null);
         
         if (id) {
-          // Fetch book info for title/price
           try {
             const bookData = await api.get(`/books/${id}`);
             setBook(bookData.book);
@@ -52,34 +48,19 @@ export function SampleReader() {
             console.error('Could not fetch book details', e);
           }
 
-          setLoadingText('Downloading 5-page sample...');
-          
-          const res = await fetch(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/sample-pdf`);
-          
-          if (!res.ok) {
-            throw new Error(`Failed to load sample stream (${res.status})`);
-          }
-          
-          setLoadingText('Preparing sample pages...');
-          const blob = await res.blob();
-          createdObjectUrl = URL.createObjectURL(blob);
-          setPdfUrl(createdObjectUrl);
+          const baseUrl = getApiBaseUrl();
+          const samplePdfUrl = `${baseUrl}/reader/${id}/sample-pdf`;
+          setPdfUrl(samplePdfUrl);
         }
       } catch (error: any) {
-        console.error('Error fetching sample PDF', error);
+        console.error('Error initializing sample PDF', error);
         setErrorMsg(error.message || 'Failed to load free sample');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchSample();
-
-    return () => {
-      if (createdObjectUrl) {
-        URL.revokeObjectURL(createdObjectUrl);
-      }
-    };
+    initSample();
   }, [id]);
 
   const changePage = (offset: number) => {
@@ -109,7 +90,7 @@ export function SampleReader() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-cream-50 gap-4">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brown-900"></div>
-        <p className="text-brown-500 font-serif text-sm italic">{loadingText}</p>
+        <p className="text-brown-500 font-serif text-sm italic">Opening 5-page sample...</p>
       </div>
     );
   }
@@ -169,7 +150,7 @@ export function SampleReader() {
 
       {/* Main Content Area */}
       <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-cream-100/40">
-        {/* Previous Page Side Floating Arrow */}
+        {/* Previous Page Floating Arrow */}
         <button 
           onClick={() => changePage(-1)}
           disabled={pageNumber <= 1}
@@ -179,7 +160,7 @@ export function SampleReader() {
           <ChevronLeft size={28} />
         </button>
 
-        {/* Next Page Side Floating Arrow */}
+        {/* Next Page Floating Arrow */}
         <button 
           onClick={() => changePage(1)}
           disabled={pageNumber >= MAX_SAMPLE_PAGES}
@@ -235,7 +216,7 @@ export function SampleReader() {
         </div>
       </div>
 
-      {/* Bottom Floating Control Bar */}
+      {/* Bottom Control Bar */}
       <footer className="py-2.5 px-4 sm:px-8 bg-cream-100 border-t border-cream-200 flex items-center justify-between z-20 shrink-0 shadow-md">
         <button 
           onClick={() => navigate(`/book/${id}`)}

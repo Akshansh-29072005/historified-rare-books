@@ -14,7 +14,8 @@ CREATE TABLE books (
   description TEXT,
   price INTEGER,
   cover_url TEXT,
-  pdf_r2_key TEXT
+  pdf_r2_key TEXT,
+  sample_pdf_r2_key TEXT
 );
 
 DROP TABLE IF EXISTS purchases;
@@ -43,5 +44,14 @@ CREATE TABLE IF NOT EXISTS coupons (
   max_uses INTEGER DEFAULT 1,
   times_used INTEGER DEFAULT 0,
   is_active INTEGER DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status TEXT DEFAULT 'UNREAD',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

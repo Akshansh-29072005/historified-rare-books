@@ -12,7 +12,8 @@ const books = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 // Get all books (public)
 books.get('/', async (c) => {
   try {
-    const { results } = await c.env.DB.prepare('SELECT id, title, author, price, cover_url, description, pdf_r2_key FROM books').all()
+    const { results } = await c.env.DB.prepare('SELECT id, title, author, price, cover_url FROM books').all()
+    c.header('Cache-Control', 'public, s-maxage=300, max-age=60')
     return c.json({ books: results || [] })
   } catch (error) {
     return c.json({ error: 'Failed to fetch books', details: (error as Error).message }, 500)
@@ -29,6 +30,7 @@ books.get('/:id', async (c) => {
       return c.json({ error: 'Book not found' }, 404)
     }
     
+    c.header('Cache-Control', 'public, s-maxage=300, max-age=60')
     return c.json({ book })
   } catch (error) {
     return c.json({ error: 'Failed to fetch book', details: (error as Error).message }, 500)
@@ -38,15 +40,16 @@ books.get('/:id', async (c) => {
 // Create book (admin only)
 books.post('/', authMiddleware, adminMiddleware, async (c) => {
   const body = await c.req.json()
-  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey } = body
+  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key } = body
   const keyToUse = pdf_r2_key || pdfKey || null
+  const sampleKeyToUse = sample_pdf_r2_key || null
   
   const id = crypto.randomUUID()
   
   try {
     await c.env.DB.prepare(
-      'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, title, author, description, price, cover_url || null, keyToUse).run()
+      'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key, sample_pdf_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, title, author, description, price, cover_url || null, keyToUse, sampleKeyToUse).run()
     
     return c.json({ id, message: 'Book created successfully' }, 201)
   } catch (error) {
@@ -59,13 +62,13 @@ books.put('/:id', authMiddleware, adminMiddleware, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   
-  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey } = body
+  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key } = body
   const keyToUse = pdf_r2_key || pdfKey || null
   
   try {
     await c.env.DB.prepare(
-      'UPDATE books SET title = COALESCE(?, title), author = COALESCE(?, author), description = COALESCE(?, description), price = COALESCE(?, price), cover_url = COALESCE(?, cover_url), pdf_r2_key = COALESCE(?, pdf_r2_key) WHERE id = ?'
-    ).bind(title, author, description, price, cover_url, keyToUse, id).run()
+      'UPDATE books SET title = COALESCE(?, title), author = COALESCE(?, author), description = COALESCE(?, description), price = COALESCE(?, price), cover_url = COALESCE(?, cover_url), pdf_r2_key = COALESCE(?, pdf_r2_key), sample_pdf_r2_key = COALESCE(?, sample_pdf_r2_key) WHERE id = ?'
+    ).bind(title, author, description, price, cover_url, keyToUse, sample_pdf_r2_key || null, id).run()
     
     return c.json({ message: 'Book updated successfully' })
   } catch (error) {

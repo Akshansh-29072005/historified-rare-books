@@ -3,17 +3,19 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Navbar } from './components/Navbar';
 import { ScamWarningBanner } from './components/ScamWarningBanner';
 import { Home } from './pages/Home';
-import { BookDetail } from './pages/BookDetail';
-import { MyBooks } from './pages/MyBooks';
-import { Reader } from './pages/Reader';
-import { SampleReader } from './pages/SampleReader';
-import { Admin } from './pages/Admin';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsConditions } from './pages/TermsConditions';
 import { RefundPolicy } from './pages/RefundPolicy';
 import { ContactUs } from './pages/ContactUs';
 import { isAdminEmail } from './config/admin';
 import './App.css';
+import { lazy, Suspense } from 'react';
+
+const Reader = lazy(() => import('./pages/Reader').then(m => ({ default: m.Reader })));
+const SampleReader = lazy(() => import('./pages/SampleReader').then(m => ({ default: m.SampleReader })));
+const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })));
+const BookDetail = lazy(() => import('./pages/BookDetail').then(m => ({ default: m.BookDetail })));
+const MyBooks = lazy(() => import('./pages/MyBooks').then(m => ({ default: m.MyBooks })));
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
@@ -44,7 +46,12 @@ function AppRoutes() {
       <Navbar />
       <ScamWarningBanner />
       <div className="flex-grow">
-        <Routes>
+        <Suspense fallback={
+          <div className="flex justify-center items-center h-screen">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+          </div>
+        }>
+          <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/book/:id" element={<BookDetail />} />
           <Route path="/read-sample/:id" element={<SampleReader />} />
@@ -77,6 +84,7 @@ function AppRoutes() {
             } 
           />
         </Routes>
+        </Suspense>
       </div>
       
       {/* Footer - except on reader pages */}

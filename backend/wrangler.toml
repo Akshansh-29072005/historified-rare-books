@@ -15,3 +15,20 @@ bucket_name = "book-pdfs"
 CASHFREE_API_URL = "https://api.cashfree.com/pg"
 FIREBASE_PROJECT_ID = "940530617921"
 ADMIN_EMAIL = "akshanshkhairwar@gmail.com"
+
+[env.staging]
+name = "backend-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "book-reading-db-staging"
+database_id = "4ff1cb3a-eaea-4cd9-ace4-8dd16fe519d4"
+
+[[env.staging.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "book-pdfs-staging"
+
+[env.staging.vars]
+CASHFREE_API_URL = "https://sandbox.cashfree.com/pg"
+FIREBASE_PROJECT_ID = "940530617921"
+ADMIN_EMAIL = "akshanshkhairwar@gmail.com"

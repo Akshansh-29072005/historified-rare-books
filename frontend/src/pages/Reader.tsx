@@ -4,30 +4,30 @@ import { useAuth } from '../contexts/AuthContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { ChevronLeft, ChevronRight, Bookmark, List, X, ArrowLeft } from 'lucide-react';
-import { api } from '../lib/api';
+import { ChevronLeft, ChevronRight, Bookmark, ArrowLeft } from 'lucide-react';
+import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker matching the exact pdfjs version
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Setup pdf.js worker to local self-hosted file
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   
-  const [numPages, setNumPages] = useState<number>(0);
+  const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingText, setLoadingText] = useState('Fetching e-book stream...');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
-  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingText, setLoadingText] = useState('Connecting to manuscript stream...');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showBookmarksDrawer, setShowBookmarksDrawer] = useState(false);
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 70);
   
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Responsive page height calculation so full PDF page fits on screen without top cropping
+  // Responsive page height calculation
   useEffect(() => {
     const handleResize = () => {
       setPageHeight(window.innerHeight - 70);
@@ -36,96 +36,85 @@ export function Reader() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Initial fetch with Auth token
+  // Fetch PDF with Auth Token and Progress
   useEffect(() => {
     if (!user) {
       navigate('/');
       return;
     }
 
-    let createdObjectUrl: string | null = null;
-
-    const fetchPdfAndProgress = async () => {
+    const initPdfAndProgress = async () => {
       try {
         setLoading(true);
         setErrorMsg(null);
-        setLoadingText('Connecting to secure PDF stream...');
+        setLoadingText('Connecting to digital manuscript...');
         
         if (id) {
           const token = await user.getIdToken();
+          const baseUrl = getApiBaseUrl();
+          // Pass token via query param so we don't need custom headers (which breaks PDF.js range chunking)
+          const pdfUrl = `${baseUrl}/reader/${id}/pdf?token=${token}`;
           
-          setLoadingText('Downloading digital manuscript...');
-          
-          // Authenticated fetch for PDF stream
-          const res = await fetch(`https://backend.akshanshkhairwar2.workers.dev/api/reader/${id}/pdf`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+          setPdfDoc(pdfUrl);
+
+          const progress = await api.get(`/reader/${id}/progress`).catch(err => {
+            console.error('Error fetching progress', err);
+            return null;
           });
-          
-          if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error || errData.details || `HTTP ${res.status}`);
-          }
-          
-          setLoadingText('Preparing reader view...');
-          const blob = await res.blob();
-          createdObjectUrl = URL.createObjectURL(blob);
-          setPdfUrl(createdObjectUrl);
-          
-          try {
-            const progress = await api.get(`/reader/${id}/progress`);
+
+          if (progress) {
             if (progress.last_read_page) setPageNumber(progress.last_read_page);
             if (progress.bookmarks) setBookmarks(typeof progress.bookmarks === 'string' ? JSON.parse(progress.bookmarks) : progress.bookmarks);
-          } catch (err) {
-            console.error('Error fetching progress', err);
           }
         }
       } catch (error: any) {
-        console.error('Error fetching PDF', error);
+        console.error('Error initializing PDF reader', error);
         setErrorMsg(error.message || 'Failed to load PDF');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPdfAndProgress();
-
-    return () => {
-      if (createdObjectUrl) {
-        URL.revokeObjectURL(createdObjectUrl);
-      }
-    };
+    initPdfAndProgress();
   }, [id, user, navigate]);
+
+  // Auto-save progress
+  useEffect(() => {
+    if (id && user && numPages) {
+      const timeoutId = setTimeout(() => {
+        api.put(`/reader/${id}/progress`, {
+          last_read_page: pageNumber,
+          bookmarks: JSON.stringify(bookmarks)
+        }).catch(err => console.error('Failed to auto-save progress', err));
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [pageNumber, bookmarks, id, user, numPages]);
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setLoading(false);
+  };
 
   const changePage = (offset: number) => {
     setPageNumber(prev => {
       const newPage = prev + offset;
-      if (numPages > 0) {
-        return Math.min(Math.max(1, newPage), numPages);
-      }
-      return Math.max(1, newPage);
+      return numPages ? Math.min(Math.max(1, newPage), numPages) : 1;
     });
   };
 
-  // Keyboard navigation & security rules
+  const toggleBookmark = () => {
+    setBookmarks(prev => 
+      prev.includes(pageNumber)
+        ? prev.filter(p => p !== pageNumber)
+        : [...prev, pageNumber].sort((a, b) => a - b)
+    );
+  };
+
+  // Keyboard navigation shortcuts
   useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Block Ctrl+S, Ctrl+P, Ctrl+Shift+I, F12
-      if (
-        (e.ctrlKey && (e.key === 's' || e.key === 'p')) ||
-        (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-        e.key === 'F12'
-      ) {
-        e.preventDefault();
-        return;
-      }
-
-      // Page Navigation Shortcuts
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'Space' || e.key === 'PageDown') {
         e.preventDefault();
         changePage(1);
@@ -135,51 +124,9 @@ export function Reader() {
       }
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [numPages]);
-
-  // Save progress
-  useEffect(() => {
-    const saveProgress = async () => {
-      if (pageNumber > 1 && id) {
-        try {
-          await api.put(`/reader/${id}/progress`, { last_read_page: pageNumber });
-        } catch (error) {
-          console.error('Failed to save progress', error);
-        }
-      }
-    };
-    
-    const timeoutId = setTimeout(saveProgress, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [pageNumber, id]);
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-  };
-
-  const toggleBookmark = async () => {
-    const isBookmarked = bookmarks.includes(pageNumber);
-    const newBookmarks = isBookmarked 
-      ? bookmarks.filter(b => b !== pageNumber)
-      : [...bookmarks, pageNumber].sort((a, b) => a - b);
-      
-    setBookmarks(newBookmarks);
-    
-    if (id) {
-      try {
-        await api.put(`/reader/${id}/progress`, { bookmarks: JSON.stringify(newBookmarks) });
-      } catch (error) {
-        console.error('Failed to save bookmarks', error);
-      }
-    }
-  };
 
   if (loading) {
     return (
@@ -194,13 +141,13 @@ export function Reader() {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-cream-50 p-6">
         <div className="text-center p-8 bg-cream-100 border border-cream-200 rounded-lg max-w-md">
-          <h2 className="font-serif text-xl font-semibold text-brown-900 mb-2">Unable to Open Reader</h2>
+          <h2 className="font-serif text-xl font-semibold text-brown-900 mb-2">Unable to Open Manuscript</h2>
           <p className="text-brown-500 text-sm mb-6">{errorMsg}</p>
           <button 
-            onClick={() => navigate(`/book/${id}`)}
+            onClick={() => navigate('/my-books')}
             className="bg-brown-900 text-cream-50 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer"
           >
-            Return to Book Page
+            Return to My Books
           </button>
         </div>
       </div>
@@ -213,9 +160,51 @@ export function Reader() {
       className="h-screen w-full bg-cream-50 overflow-hidden relative select-none flex flex-col"
       style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
     >
-      {/* Main Content Area - Full height with zero top bar clipping */}
+      {/* Bookmarks Drawer Overlay */}
+      {showBookmarksDrawer && (
+        <div className="absolute top-0 right-0 bottom-14 w-80 bg-cream-100 border-l border-cream-300 shadow-2xl z-40 p-6 overflow-y-auto animate-slide-in">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-serif text-lg font-semibold text-brown-900 flex items-center gap-2">
+              <Bookmark size={18} className="text-brown-700" />
+              <span>Bookmarks</span>
+            </h3>
+            <button 
+              onClick={() => setShowBookmarksDrawer(false)}
+              className="text-brown-500 hover:text-brown-900 text-xs cursor-pointer font-medium"
+            >
+              Close ✕
+            </button>
+          </div>
+
+          {bookmarks.length > 0 ? (
+            <div className="space-y-2">
+              {bookmarks.map((bmPage) => (
+                <button
+                  key={bmPage}
+                  onClick={() => {
+                    setPageNumber(bmPage);
+                    setShowBookmarksDrawer(false);
+                  }}
+                  className={`w-full text-left px-4 py-2.5 rounded-md text-sm font-medium transition-colors flex justify-between items-center cursor-pointer ${
+                    pageNumber === bmPage 
+                      ? 'bg-brown-900 text-cream-50' 
+                      : 'bg-cream-50 text-brown-900 hover:bg-cream-200 border border-cream-300'
+                  }`}
+                >
+                  <span>Page {bmPage}</span>
+                  <Bookmark size={14} fill={pageNumber === bmPage ? 'currentColor' : 'none'} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-brown-400 text-sm italic">No bookmarks saved yet.</p>
+          )}
+        </div>
+      )}
+
+      {/* Main Content Area */}
       <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-cream-100/40">
-        {/* Previous Page Side Floating Arrow */}
+        {/* Previous Page Floating Arrow */}
         <button 
           onClick={() => changePage(-1)}
           disabled={pageNumber <= 1}
@@ -225,53 +214,70 @@ export function Reader() {
           <ChevronLeft size={28} />
         </button>
 
-        {/* Next Page Side Floating Arrow */}
+        {/* Next Page Floating Arrow */}
         <button 
           onClick={() => changePage(1)}
-          disabled={numPages > 0 && pageNumber >= numPages}
+          disabled={pageNumber >= (numPages || 1)}
           title="Next Page (Right Arrow)"
           className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-cream-100/90 hover:bg-cream-200 text-brown-900 p-3 rounded-full border border-cream-300 shadow-lg disabled:opacity-20 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           <ChevronRight size={28} />
         </button>
 
-        {/* PDF Document Canvas Container */}
-        <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3">
-          {pdfUrl && (
-            <Document
-              file={pdfUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={(err) => setErrorMsg(err.message || 'Error parsing PDF file')}
-              onSourceError={(err) => setErrorMsg(err.message || 'Error loading PDF stream')}
-              className="flex flex-col items-center max-w-full"
-              loading={
-                <div className="flex flex-col items-center gap-3">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
-                  <p className="text-brown-500 text-xs font-serif italic">Rendering page...</p>
+        {/* PDF Canvas Container */}
+        <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
+          {pdfDoc && (
+            <div className="relative inline-block my-auto">
+              <Document
+                file={pdfDoc}
+                options={{
+                  disableAutoFetch: true,
+                  rangeChunkSize: 262144, // 256 KB
+                }}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={(err) => setErrorMsg(err.message || 'Error loading PDF')}
+                className="flex flex-col items-center max-w-full"
+                loading={
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+                    <p className="text-brown-500 text-xs font-serif italic">Rendering page {pageNumber}...</p>
+                  </div>
+                }
+              >
+                <Page 
+                  pageNumber={pageNumber} 
+                  height={pageHeight}
+                  className="shadow-2xl rounded-sm overflow-hidden border border-cream-300"
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
+                  devicePixelRatio={Math.min(2, window.devicePixelRatio)}
+                />
+              </Document>
+
+              {/* Anti-Piracy DRM Canvas Watermark */}
+              {user?.email && (
+                <div 
+                  className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center overflow-hidden opacity-[0.14]"
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                >
+                  <div className="transform -rotate-45 text-brown-900 font-mono text-xs sm:text-sm font-bold whitespace-nowrap tracking-widest uppercase select-none">
+                    LICENSED TO {user.email} • HISTORIFIED RARE BOOKS
+                  </div>
                 </div>
-              }
-            >
-              <Page 
-                pageNumber={pageNumber} 
-                height={pageHeight}
-                className="shadow-2xl rounded-sm overflow-hidden border border-cream-300 my-auto"
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                devicePixelRatio={Math.min(2, window.devicePixelRatio)}
-              />
-            </Document>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Bottom Floating Control Bar containing Back, Page Nav & Bookmarks */}
+      {/* Bottom Control Bar */}
       <footer className="py-2.5 px-4 sm:px-8 bg-cream-100 border-t border-cream-200 flex items-center justify-between z-20 shrink-0 shadow-md">
         <button 
-          onClick={() => navigate(`/book/${id}`)}
-          className="flex items-center gap-2 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
+          onClick={() => navigate('/my-books')}
+          className="flex items-center gap-1.5 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3 py-1 rounded-full border border-cream-300 text-xs font-medium shadow-sm cursor-pointer"
         >
-          <ArrowLeft size={16} />
-          <span>Back</span>
+          <ArrowLeft size={14} />
+          <span>My Books</span>
         </button>
 
         <div className="flex items-center gap-3 sm:gap-6">
@@ -281,82 +287,49 @@ export function Reader() {
             className="text-brown-700 hover:text-brown-900 disabled:opacity-30 p-1.5 rounded-full hover:bg-cream-200 cursor-pointer"
             title="Previous Page"
           >
-            <ChevronLeft size={22} />
+            <ChevronLeft size={20} />
           </button>
           
           <span className="text-xs sm:text-sm font-medium text-brown-900 font-serif">
-            Page {pageNumber} of {numPages || '...'}
+            Page {pageNumber} of {numPages || '--'}
           </span>
           
           <button 
             onClick={() => changePage(1)}
-            disabled={numPages > 0 && pageNumber >= numPages}
+            disabled={pageNumber >= (numPages || 1)}
             className="text-brown-700 hover:text-brown-900 disabled:opacity-30 p-1.5 rounded-full hover:bg-cream-200 cursor-pointer"
             title="Next Page"
           >
-            <ChevronRight size={22} />
+            <ChevronRight size={20} />
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <button 
             onClick={toggleBookmark}
+            className={`p-2 rounded-full border transition-colors cursor-pointer ${
+              bookmarks.includes(pageNumber)
+                ? 'bg-brown-900 text-cream-50 border-brown-900'
+                : 'bg-cream-50 text-brown-700 hover:text-brown-900 border-cream-300'
+            }`}
             title={bookmarks.includes(pageNumber) ? 'Remove Bookmark' : 'Bookmark Page'}
-            className="flex items-center gap-1.5 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
           >
-            <Bookmark size={15} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
-            <span className="hidden sm:inline">{bookmarks.includes(pageNumber) ? 'Bookmarked' : 'Bookmark'}</span>
+            <Bookmark size={16} fill={bookmarks.includes(pageNumber) ? 'currentColor' : 'none'} />
           </button>
 
           <button 
-            onClick={() => setShowBookmarks(true)}
-            className="flex items-center gap-1.5 text-brown-700 hover:text-brown-900 transition-colors bg-cream-50 px-3.5 py-1.5 rounded-full border border-cream-300 text-xs sm:text-sm font-medium shadow-sm cursor-pointer"
+            onClick={() => setShowBookmarksDrawer(!showBookmarksDrawer)}
+            className="flex items-center gap-1.5 bg-cream-50 hover:bg-cream-200 text-brown-900 px-3 py-1 rounded-full border border-cream-300 text-xs font-medium shadow-sm cursor-pointer transition-colors"
           >
-            <List size={15} />
-            <span>({bookmarks.length})</span>
+            <span>Bookmarks</span>
+            {bookmarks.length > 0 && (
+              <span className="bg-brown-900 text-cream-50 text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                {bookmarks.length}
+              </span>
+            )}
           </button>
         </div>
       </footer>
-
-      {/* Bookmarks Sidebar */}
-      <div className={`fixed top-0 right-0 h-full w-80 bg-cream-50 border-l border-cream-200 shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${showBookmarks ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="p-4 border-b border-cream-200 flex justify-between items-center bg-cream-100">
-          <h2 className="font-serif text-lg font-semibold text-brown-900">Bookmarks</h2>
-          <button onClick={() => setShowBookmarks(false)} className="text-brown-500 hover:text-brown-900 cursor-pointer">
-            <X size={20} />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          {bookmarks.length === 0 ? (
-            <p className="text-brown-400 text-sm text-center mt-10">No bookmarks yet</p>
-          ) : (
-            <ul className="space-y-2">
-              {bookmarks.map(page => (
-                <li key={page}>
-                  <button 
-                    onClick={() => {
-                      setPageNumber(page);
-                      setShowBookmarks(false);
-                    }}
-                    className="w-full text-left px-4 py-3 rounded-md hover:bg-cream-100 text-brown-700 text-sm flex justify-between items-center group transition-colors cursor-pointer"
-                  >
-                    <span>Page {page}</span>
-                    <Bookmark size={14} className="opacity-0 group-hover:opacity-100" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-      
-      {/* Overlay for closing sidebar */}
-      {showBookmarks && (
-        <div 
-          className="fixed inset-0 bg-brown-900/10 z-40"
-          onClick={() => setShowBookmarks(false)}
-        />
-      )}
     </div>
   );
 }

@@ -42,6 +42,7 @@ payment.post('/create-order', authMiddleware, async (c) => {
   }
 
   const orderId = `order_${crypto.randomUUID()}`
+  const origin = c.req.header('origin') || 'https://historified-rare-books.pages.dev'
 
   try {
     const cashfreeRes = await fetch(`${c.env.CASHFREE_API_URL}/orders`, {
@@ -63,7 +64,7 @@ payment.post('/create-order', authMiddleware, async (c) => {
           customer_phone: customerPhone || '9999999999'
         },
         order_meta: {
-          return_url: `https://historified-rare-books.pages.dev/book/${bookId}?order_id=${orderId}${appliedCouponCode ? `&coupon=${appliedCouponCode}` : ''}`
+          return_url: `${origin}/book/${bookId}?order_id=${orderId}${appliedCouponCode ? `&coupon=${appliedCouponCode}` : ''}`
         }
       })
     })
@@ -101,7 +102,9 @@ payment.post('/verify', authMiddleware, async (c) => {
 
   try {
     const cashfreeRes = await fetch(`${c.env.CASHFREE_API_URL}/orders/${orderId}`, {
+      method: 'GET',
       headers: {
+        'Content-Type': 'application/json',
         'x-client-id': c.env.CASHFREE_APP_ID,
         'x-client-secret': c.env.CASHFREE_SECRET_KEY,
         'x-api-version': '2023-08-01'
@@ -109,79 +112,30 @@ payment.post('/verify', authMiddleware, async (c) => {
     })
 
     if (!cashfreeRes.ok) {
-      throw new Error('Failed to fetch order status from Cashfree')
+      const errorText = await cashfreeRes.text()
+      throw new Error(`Cashfree verification error: ${errorText}`)
     }
 
     const orderData = await cashfreeRes.json() as any
 
     if (orderData.order_status === 'PAID') {
       await c.env.DB.prepare(
-        'UPDATE purchases SET status = ? WHERE cashfree_order_id = ? OR id = ?'
-      ).bind('COMPLETED', orderId, orderId).run()
-      
-      // Increment coupon usage if coupon code supplied or in URL
+        'UPDATE purchases SET status = ? WHERE cashfree_order_id = ?'
+      ).bind('COMPLETED', orderId).run()
+
+      // Increment coupon usage if applied
       if (couponCode && typeof couponCode === 'string') {
-        const normalizedCode = couponCode.trim().toUpperCase()
         await c.env.DB.prepare(
           'UPDATE coupons SET times_used = times_used + 1 WHERE UPPER(code) = ?'
-        ).bind(normalizedCode).run().catch(() => {})
+        ).bind(couponCode.trim().toUpperCase()).run()
       }
 
-      return c.json({ status: 'COMPLETED' })
+      return c.json({ status: 'COMPLETED', message: 'Payment verified and purchase recorded' })
     }
 
-    return c.json({ status: orderData.order_status })
+    return c.json({ status: orderData.order_status, message: 'Payment not completed yet' })
   } catch (error) {
-    return c.json({ error: 'Failed to verify order', details: (error as Error).message }, 500)
-  }
-})
-
-payment.post('/webhook', async (c) => {
-  const rawBody = await c.req.text()
-  const signature = c.req.header('x-webhook-signature')
-  
-  if (!signature) {
-    return c.json({ error: 'Missing signature' }, 401)
-  }
-  
-  const timestamp = c.req.header('x-webhook-timestamp')
-  const payloadToVerify = `${timestamp}${rawBody}`
-
-  try {
-    const encoder = new TextEncoder()
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(c.env.CASHFREE_SECRET_KEY),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    )
-    
-    const signatureBytes = Uint8Array.from(atob(signature), c => c.charCodeAt(0))
-    
-    const isValid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signatureBytes,
-      encoder.encode(payloadToVerify)
-    )
-
-    if (!isValid) {
-      return c.json({ error: 'Invalid signature' }, 401)
-    }
-
-    const data = JSON.parse(rawBody)
-    
-    if (data.type === 'PAYMENT_SUCCESS_WEBHOOK') {
-      const orderId = data.data.order.order_id
-      await c.env.DB.prepare(
-        'UPDATE purchases SET status = ? WHERE cashfree_order_id = ? OR id = ?'
-      ).bind('COMPLETED', orderId, orderId).run()
-    }
-
-    return c.text('OK')
-  } catch (error) {
-    return c.json({ error: 'Webhook processing failed' }, 500)
+    return c.json({ error: 'Failed to verify payment', details: (error as Error).message }, 500)
   }
 })
 

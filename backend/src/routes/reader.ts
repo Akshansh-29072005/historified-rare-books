@@ -8,17 +8,23 @@ type Variables = {
 
 const reader = new Hono<{ Bindings: Bindings, Variables: Variables }>()
 
-// Public route for reading 5-page sample stream
-reader.get('/:bookId/sample-pdf', async (c) => {
-  const bookId = c.req.param('bookId')
+/**
+ * Helper: Serve a PDF from R2 with HTTP Range Request support.
+ * - If client sends `Range` header → returns 206 Partial Content (PDF.js lazy page loading)
+ * - Otherwise → returns 200 with full body
+ * - Includes proper cache headers, CORS, ETag, Accept-Ranges
+ */
+async function servePdfFromR2(
+  c: any,
+  r2Key: string,
+  cacheControl: string
+): Promise<Response> {
+  const rangeHeader = c.req.header('Range')
 
-  const book = await c.env.DB.prepare('SELECT pdf_r2_key FROM books WHERE id = ?').bind(bookId).first<{ pdf_r2_key: string }>()
-  
-  if (!book || !book.pdf_r2_key) {
-    return c.json({ error: 'PDF not found for this book' }, 404)
-  }
-
-  const object = await c.env.R2_BUCKET.get(book.pdf_r2_key)
+  // Fetch from R2 with optional range automatically handled by Cloudflare
+  let object = await c.env.R2_BUCKET.get(r2Key, {
+    range: c.req.raw.headers,
+  }) as R2ObjectBody | null
 
   if (!object) {
     return c.json({ error: 'PDF file not found in storage' }, 404)
@@ -28,10 +34,45 @@ reader.get('/:bookId/sample-pdf', async (c) => {
   object.writeHttpMetadata(headers)
   headers.set('etag', object.httpEtag)
   headers.set('content-type', 'application/pdf')
+  headers.set('accept-ranges', 'bytes')
+  headers.set('cache-control', cacheControl)
 
-  return new Response(object.body, {
-    headers
-  })
+  // If we requested a range and R2 fulfilled it (or we manually requested a range and got the object)
+  const fulfilledRange = (object as any).range
+  if (rangeHeader && fulfilledRange) {
+    const size = (object as any).size || 0
+    if ('offset' in fulfilledRange && 'length' in fulfilledRange) {
+      headers.set('content-range', `bytes ${fulfilledRange.offset}-${fulfilledRange.offset + fulfilledRange.length - 1}/${size}`)
+      headers.set('content-length', String(fulfilledRange.length))
+    }
+    return new Response(object.body, { status: 206, headers })
+  }
+
+  // Full response
+  if ((object as any).size) {
+    headers.set('content-length', String((object as any).size))
+  }
+  return new Response(object.body, { status: 200, headers })
+}
+
+// Public route for reading sample PDF (first 5 pages)
+reader.get('/:bookId/sample-pdf', async (c) => {
+  const bookId = c.req.param('bookId')
+
+  const book = await c.env.DB.prepare(
+    'SELECT sample_pdf_r2_key FROM books WHERE id = ?'
+  ).bind(bookId).first<{ sample_pdf_r2_key?: string }>()
+  
+  if (!book) {
+    return c.json({ error: 'Book not found' }, 404)
+  }
+
+  // Only serve the pre-extracted sample PDF — never fall back to the full paid book
+  if (!book.sample_pdf_r2_key) {
+    return c.json({ error: 'Sample preview not available for this book' }, 404)
+  }
+
+  return servePdfFromR2(c, book.sample_pdf_r2_key, 'public, max-age=86400')
 })
 
 // Protected routes require authentication
@@ -45,9 +86,9 @@ reader.get('/:bookId/pdf', async (c) => {
 
   const bookId = c.req.param('bookId')
 
-  // Check purchase status
+  // Check purchase status (uses indexed column: user_id, book_id, status)
   const purchase = await c.env.DB.prepare(
-    'SELECT * FROM purchases WHERE user_id = ? AND book_id = ? AND status = ?'
+    'SELECT id FROM purchases WHERE user_id = ? AND book_id = ? AND status = ?'
   ).bind(user.id, bookId, 'COMPLETED').first()
 
   if (!purchase && user.role !== 'admin') {
@@ -60,20 +101,7 @@ reader.get('/:bookId/pdf', async (c) => {
     return c.json({ error: 'PDF not found for this book' }, 404)
   }
 
-  const object = await c.env.R2_BUCKET.get(book.pdf_r2_key)
-
-  if (!object) {
-    return c.json({ error: 'PDF file not found in storage' }, 404)
-  }
-
-  const headers = new Headers()
-  object.writeHttpMetadata(headers)
-  headers.set('etag', object.httpEtag)
-  headers.set('content-type', 'application/pdf')
-
-  return new Response(object.body, {
-    headers
-  })
+  return servePdfFromR2(c, book.pdf_r2_key, 'private, max-age=3600')
 })
 
 reader.get('/:bookId/progress', async (c) => {
