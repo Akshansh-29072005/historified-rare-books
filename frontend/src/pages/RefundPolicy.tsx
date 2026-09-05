@@ -24,7 +24,7 @@ export function RefundPolicy() {
 
         <section className="bg-cream-100 p-6 rounded-lg border border-cream-200">
           <h2 className="font-serif text-xl font-semibold text-brown-900 mb-3">3. How to Request a Refund</h2>
-          <p className="mb-2">To submit a refund or cancellation request, please email customer support at <strong>akshanshkhairwar@gmail.com</strong> with:</p>
+          <p className="mb-2">To submit a refund or cancellation request, please email customer support at <strong>historified.rare.books@gmail.com</strong> with:</p>
           <ul className="list-disc pl-5 space-y-1">
             <li>Your Google Account email address</li>
             <li>Cashfree Order ID / Transaction Reference Number</li>

@@ -42,7 +42,7 @@ export function ContactUs() {
           
           <div>
             <p className="text-xs text-brown-400 font-medium uppercase tracking-wider mb-1">Customer Support Email</p>
-            <p className="text-brown-900 font-medium text-base">akshanshkhairwar@gmail.com</p>
+            <p className="text-brown-900 font-medium text-base">historified.rare.books@gmail.com</p>
           </div>
 
           <div>

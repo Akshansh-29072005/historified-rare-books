@@ -22,7 +22,7 @@ contact.post('/', async (c) => {
     ).bind(id, name, email, message).run()
 
     // Send email alert to Admin
-    const adminEmail = c.env.ADMIN_EMAIL || 'akshanshkhairwar@gmail.com'
+    const adminEmail = c.env.ADMIN_EMAIL || 'historified.rare.books@gmail.com'
     const emailHtml = getAdminSupportNotificationHtml(name, email, message)
     await sendBrevoEmail(c.env.BREVO_API_KEY, {
       toEmail: adminEmail,

@@ -36,7 +36,7 @@ export function PrivacyPolicy() {
 
         <section className="bg-cream-100 p-6 rounded-lg border border-cream-200">
           <h2 className="font-serif text-xl font-semibold text-brown-900 mb-3">4. Contact Us</h2>
-          <p>If you have any questions or concerns regarding this Privacy Policy, please contact us at <strong>akshanshkhairwar@gmail.com</strong>.</p>
+          <p>If you have any questions or concerns regarding this Privacy Policy, please contact us at <strong>historified.rare.books@gmail.com</strong>.</p>
         </section>
       </div>
     </main>
