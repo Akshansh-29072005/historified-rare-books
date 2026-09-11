@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { load } from '@cashfreepayments/cashfree-js';
 import { Eye, BookOpen, Tag, Check, X } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -26,17 +25,6 @@ export function BookDetail() {
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
-
-  const [cashfreeInstance, setCashfreeInstance] = useState<any>(null);
-
-  useEffect(() => {
-    const isStaging = typeof window !== 'undefined' && (
-      window.location.hostname.includes('staging') || 
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1'
-    );
-    load({ mode: isStaging ? 'sandbox' : 'production' }).then(setCashfreeInstance).catch(console.error);
-  }, []);
 
   useEffect(() => {
     const fetchBookAndStatus = async () => {
@@ -151,39 +139,18 @@ export function BookDetail() {
     try {
       setProcessing(true);
       
-      // 1. Initialize Cashfree SDK (sandbox on staging/localhost, production on prod)
-      const isStaging = typeof window !== 'undefined' && (
-        window.location.hostname.includes('staging') || 
-        window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1'
-      );
-      const cashfree = cashfreeInstance || await load({
-        mode: isStaging ? 'sandbox' : 'production',
+      // Temporarily bypass Cashfree and route to manual QR payment
+      navigate(`/manual-payment/${id}`, {
+        state: {
+          final_price: currentPayablePrice,
+          discount_amount: appliedCoupon?.discount_amount,
+          coupon_code: appliedCoupon?.code
+        }
       });
-      
-      // 2. Call backend to create order (passing applied coupon code if any)
-      const orderData = await api.post('/payment/create-order', { 
-        bookId: id,
-        couponCode: appliedCoupon?.code || undefined,
-        userId: user.uid,
-        customerEmail: user.email,
-        customerPhone: '9999999999',
-        customerName: user.displayName || 'Customer'
-      });
-      
-      // 3. Open checkout
-      if (orderData.payment_session_id) {
-        await cashfree.checkout({
-          paymentSessionId: orderData.payment_session_id,
-          redirectTarget: '_self'
-        });
-      } else {
-        throw new Error('Could not generate Cashfree payment session');
-      }
       
     } catch (error: any) {
-      console.error('Payment failed', error);
-      alert(`Payment failed: ${error.message || 'Please try again.'}`);
+      console.error('Payment routing failed', error);
+      alert(`Routing failed: ${error.message || 'Please try again.'}`);
       setProcessing(false);
     }
   };

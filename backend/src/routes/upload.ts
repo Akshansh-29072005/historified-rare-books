@@ -75,4 +75,30 @@ upload.post('/cover', authMiddleware, adminMiddleware, async (c) => {
   }
 })
 
+upload.post('/qr', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const file = body['file'] as File
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400)
+    }
+
+    const ext = file.name.split('.').pop()
+    const filename = `${crypto.randomUUID()}.${ext}`
+    const key = `covers/${filename}`
+    
+    await c.env.R2_BUCKET.put(key, await file.arrayBuffer(), {
+      httpMetadata: { contentType: file.type }
+    })
+
+    const origin = new URL(c.req.url).origin
+    const publicUrl = `${origin}/api/upload/cover/${filename}`
+
+    return c.json({ key, url: publicUrl, message: 'QR Code uploaded successfully' })
+  } catch (error) {
+    return c.json({ error: 'Failed to upload QR Code', details: (error as Error).message }, 500)
+  }
+})
+
 export default upload
