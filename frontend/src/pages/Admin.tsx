@@ -924,6 +924,111 @@ export function Admin() {
           )}
         </div>
       )}
+
+      {/* TAB 3: MANUAL PAYMENTS */}
+      {activeTab === 'payments' && (
+        <div className="space-y-8">
+          
+          {/* QR Code Upload Section */}
+          <div className="bg-cream-100 border border-cream-200 rounded-xl p-6 shadow-sm">
+            <h2 className="font-serif text-xl font-semibold text-brown-900 mb-4 flex items-center gap-2">
+              <Ticket size={20} className="text-brown-700" />
+              <span>UPI QR Code Settings</span>
+            </h2>
+            
+            <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+              {qrCodeUrl ? (
+                <div className="relative group">
+                  <img src={qrCodeUrl} alt="UPI QR Code" className="w-40 h-40 object-cover border border-cream-300 rounded-md" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center">
+                    <label className="text-white text-xs font-medium cursor-pointer underline hover:text-cream-200">
+                      Change QR
+                      <input type="file" accept="image/*" onChange={handleUploadQr} className="hidden" />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-40 h-40 bg-cream-200 border-2 border-dashed border-cream-300 rounded-md flex items-center justify-center">
+                  <span className="text-brown-400 text-xs">No QR Code</span>
+                </div>
+              )}
+
+              <div>
+                <p className="text-sm text-brown-700 mb-3">Upload your UPI QR code so users can scan and pay manually.</p>
+                <label className="bg-brown-900 text-cream-50 px-4 py-2 rounded-md text-sm font-medium hover:bg-brown-700 transition-colors cursor-pointer inline-flex items-center gap-2 shadow-sm">
+                  {uploadingQr ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cream-50"></div>
+                  ) : (
+                    <span>{qrCodeUrl ? 'Upload New QR Code' : 'Upload QR Code'}</span>
+                  )}
+                  <input type="file" accept="image/*" onChange={handleUploadQr} disabled={uploadingQr} className="hidden" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-2xl font-semibold text-brown-900 flex items-center gap-2">
+              <Ticket size={22} className="text-brown-700" />
+              <span>Pending Manual Payments</span>
+            </h2>
+            <button
+              onClick={loadManualPayments}
+              className="text-xs font-medium text-brown-700 hover:text-brown-900 bg-cream-100 hover:bg-cream-200 px-3 py-1.5 rounded border border-cream-300 cursor-pointer"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {loadingPayments ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brown-900"></div>
+            </div>
+          ) : manualPayments.length > 0 ? (
+            <div className="space-y-4">
+              {manualPayments.map((payment) => (
+                <div key={payment.id} className="bg-cream-100 border border-cream-200 rounded-xl p-6 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-serif text-lg font-semibold text-brown-900">₹{payment.amount}</h3>
+                        <span className="text-xs font-semibold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md">
+                          PENDING
+                        </span>
+                      </div>
+                      <p className="text-brown-700 font-medium text-sm mb-1">{payment.book_title}</p>
+                      <p className="text-brown-500 text-xs">From: {payment.user_email}</p>
+                      <div className="mt-3 bg-cream-50 border border-cream-200 p-2 rounded inline-block">
+                        <p className="text-xs text-brown-500 uppercase tracking-wider mb-0.5">UTR / Transaction ID</p>
+                        <p className="font-mono text-sm font-semibold text-brown-900">{payment.utr}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-3">
+                      <p className="text-brown-400 text-xs font-mono">
+                        {new Date(payment.created_at).toLocaleString()}
+                      </p>
+                      <button
+                        onClick={() => handleApprovePayment(payment.id)}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-cream-50 px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>Verify & Accept</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-cream-100 border border-cream-200 rounded-xl p-12 text-center text-brown-500">
+              <CheckCircle2 size={32} className="mx-auto text-emerald-600/50 mb-3" />
+              <p className="font-serif text-lg text-brown-900 mb-1">All caught up!</p>
+              <p className="text-xs text-brown-500">There are no pending manual payments to verify.</p>
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }

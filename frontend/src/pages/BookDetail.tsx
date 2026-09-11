@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { load } from '@cashfreepayments/cashfree-js';
 import { Eye, BookOpen, Tag, Check, X } from 'lucide-react';
 import { api } from '../lib/api';
 
@@ -26,17 +25,6 @@ export function BookDetail() {
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
-
-  const [cashfreeInstance, setCashfreeInstance] = useState<any>(null);
-
-  useEffect(() => {
-    const isStaging = typeof window !== 'undefined' && (
-      window.location.hostname.includes('staging') || 
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1'
-    );
-    load({ mode: isStaging ? 'sandbox' : 'production' }).then(setCashfreeInstance).catch(console.error);
-  }, []);
 
   useEffect(() => {
     const fetchBookAndStatus = async () => {
