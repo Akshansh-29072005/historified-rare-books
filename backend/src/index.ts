@@ -10,6 +10,7 @@ import user from './routes/user'
 import coupons from './routes/coupons'
 import contact from './routes/contact'
 import webhook from './routes/webhook'
+import settings from './routes/settings'
 
 const app = new Hono<{ Bindings: Bindings }>()
 
@@ -37,5 +38,6 @@ app.route('/api/user', user)
 app.route('/api/coupons', coupons)
 app.route('/api/contact', contact)
 app.route('/api/webhook', webhook)
+app.route('/api/settings', settings)
 
 export default app

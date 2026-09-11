@@ -16,6 +16,7 @@ const SampleReader = lazy(() => import('./pages/SampleReader').then(m => ({ defa
 const Admin = lazy(() => import('./pages/Admin').then(m => ({ default: m.Admin })));
 const BookDetail = lazy(() => import('./pages/BookDetail').then(m => ({ default: m.BookDetail })));
 const MyBooks = lazy(() => import('./pages/MyBooks').then(m => ({ default: m.MyBooks })));
+const ManualPayment = lazy(() => import('./pages/ManualPayment').then(m => ({ default: m.ManualPayment })));
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
@@ -54,6 +55,7 @@ function AppRoutes() {
           <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/book/:id" element={<BookDetail />} />
+          <Route path="/manual-payment/:id" element={<ManualPayment />} />
           <Route path="/read-sample/:id" element={<SampleReader />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsConditions />} />

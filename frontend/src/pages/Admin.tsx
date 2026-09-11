@@ -10,8 +10,8 @@ export function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
-  // Navigation tab state: 'library' or 'support'
-  const [activeTab, setActiveTab] = useState<'library' | 'support'>('library');
+  // Navigation tab state: 'library' | 'support' | 'payments'
+  const [activeTab, setActiveTab] = useState<'library' | 'support' | 'payments'>('library');
 
   // Library & Coupon state
   const [books, setBooks] = useState<any[]>([]);
@@ -46,6 +46,14 @@ export function Admin() {
   // Contact / Support Messages state
   const [messages, setMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
+
+  // Manual Payments state
+  const [manualPayments, setManualPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(true);
+  
+  // Settings (QR Code) state
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [uploadingQr, setUploadingQr] = useState(false);
 
   // Check admin
   useEffect(() => {
@@ -93,10 +101,36 @@ export function Admin() {
     }
   };
 
+  const loadManualPayments = async () => {
+    try {
+      setLoadingPayments(true);
+      const data = await api.get('/payment/manual-pending');
+      setManualPayments(data.payments || []);
+    } catch (error) {
+      console.error('Failed to fetch manual payments', error);
+      setManualPayments([]);
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const data = await api.get('/settings');
+      if (data.settings && data.settings.upi_qr_code_url) {
+        setQrCodeUrl(data.settings.upi_qr_code_url);
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings', error);
+    }
+  };
+
   useEffect(() => {
     loadBooks();
     loadCoupons();
     loadMessages();
+    loadManualPayments();
+    loadSettings();
   }, []);
 
   const unreadCount = messages.filter(m => m.status === 'UNREAD').length;
@@ -346,6 +380,43 @@ export function Admin() {
     }
   };
 
+  // Manual Payments Handlers
+  const handleApprovePayment = async (paymentId: string) => {
+    if (window.confirm('Are you sure you want to approve this payment? The user will get access to the book immediately.')) {
+      try {
+        await api.post('/payment/manual-approve', { paymentId });
+        setManualPayments(manualPayments.filter(p => p.id !== paymentId));
+        alert('Payment approved successfully! The user now has access.');
+      } catch (error: any) {
+        console.error('Failed to approve payment', error);
+        alert(`Failed to approve payment: ${error.message}`);
+      }
+    }
+  };
+
+  const handleUploadQr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingQr(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await api.uploadFile('/upload/qr', formData);
+      
+      // Save setting
+      await api.post('/settings', { upi_qr_code_url: uploadRes.url });
+      setQrCodeUrl(uploadRes.url);
+      alert('QR Code uploaded and saved successfully!');
+    } catch (error: any) {
+      console.error('Failed to upload QR code', error);
+      alert('Failed to upload QR code: ' + error.message);
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
   if (!user || !isAdminEmail(user.email)) return null;
 
   return (
@@ -383,6 +454,23 @@ export function Admin() {
             {unreadCount > 0 && (
               <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
                 {unreadCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('payments')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all cursor-pointer relative ${
+              activeTab === 'payments'
+                ? 'bg-brown-900 text-cream-50 shadow-sm'
+                : 'text-brown-700 hover:text-brown-900 hover:bg-cream-200/50'
+            }`}
+          >
+            <Ticket size={16} />
+            <span>Manual Payments</span>
+            {manualPayments.length > 0 && (
+              <span className="bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
+                {manualPayments.length}
               </span>
             )}
           </button>
