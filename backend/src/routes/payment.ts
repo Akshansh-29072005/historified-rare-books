@@ -166,7 +166,7 @@ payment.post('/manual-submit', authMiddleware, async (c) => {
 
 // Admin endpoints for Manual Payments
 import { adminMiddleware } from '../middleware/admin'
-import { sendBrevoEmail, getPurchaseReceiptHtml } from '../lib/brevo'
+import { sendBrevoEmail, getPurchaseThankYouEmailHtml } from '../lib/email'
 
 payment.get('/manual-pending', authMiddleware, adminMiddleware, async (c) => {
   try {
@@ -209,12 +209,10 @@ payment.post('/manual-approve', authMiddleware, adminMiddleware, async (c) => {
     // 4. Send email receipt
     const book = await c.env.DB.prepare('SELECT title, cover_url, coverUrl FROM books WHERE id = ?').bind(payment.book_id).first<any>()
     if (book) {
-      const emailHtml = getPurchaseReceiptHtml(
-        payment.user_email.split('@')[0],
+      const emailHtml = getPurchaseThankYouEmailHtml(
         book.title,
-        payment.amount.toString(),
-        fakeOrderId,
-        book.cover_url || book.coverUrl
+        payment.amount,
+        fakeOrderId
       )
       // Send email in background
       c.executionCtx.waitUntil(
