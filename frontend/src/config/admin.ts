@@ -8,8 +8,8 @@
  */
 
 export const ADMIN_1_EMAIL = 'akshanshkhairwar@gmail.com'; // Admin 1: Me
-export const ADMIN_2_EMAIL = 'shiwanikumar04@gmail.com';         // Admin 2: Cousin (Fill email here)
-export const ADMIN_3_EMAIL = 'historified.rare.books@gmail.com';         // Admin 3: Common Account (Fill email here)
+export const ADMIN_2_EMAIL = 'shiwanikumar0409@gmail.com';         // Admin 2: Cousin
+export const ADMIN_3_EMAIL = 'historified.rare.books@gmail.com';         // Admin 3: Common Account
 
 // List of all authorized admin emails
 export const ADMIN_EMAILS: string[] = [
