@@ -207,7 +207,7 @@ payment.post('/manual-approve', authMiddleware, adminMiddleware, async (c) => {
     ).bind(purchaseId, payment.user_id, payment.book_id, fakeOrderId, 'COMPLETED').run()
 
     // 4. Send email receipt
-    const book = await c.env.DB.prepare('SELECT title, cover_url, coverUrl FROM books WHERE id = ?').bind(payment.book_id).first<any>()
+    const book = await c.env.DB.prepare('SELECT title, cover_url FROM books WHERE id = ?').bind(payment.book_id).first<any>()
     if (book) {
       const emailHtml = getPurchaseThankYouEmailHtml(
         book.title,
