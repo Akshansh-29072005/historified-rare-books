@@ -51,6 +51,18 @@ books.post('/', authMiddleware, adminMiddleware, async (c) => {
       'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key, sample_pdf_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).bind(id, title, author, description, price, cover_url || null, keyToUse, sampleKeyToUse).run()
     
+    // Automatically grant access to the admin who uploaded it
+    try {
+      const user = c.get('user');
+      if (user && user.id) {
+        await c.env.DB.prepare(
+          'INSERT INTO purchases (id, user_id, book_id, amount, status) VALUES (?, ?, ?, ?, ?)'
+        ).bind(crypto.randomUUID(), user.id, id, 0, 'completed').run();
+      }
+    } catch (grantErr) {
+      console.error('Failed to auto-grant access to admin', grantErr);
+    }
+    
     return c.json({ id, message: 'Book created successfully' }, 201)
   } catch (error) {
     return c.json({ error: 'Failed to create book', details: (error as Error).message }, 500)

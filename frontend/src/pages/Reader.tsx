@@ -7,8 +7,11 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, Bookmark, ArrowLeft } from 'lucide-react';
 import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker to load from CDN so all dependencies (like WASM decoders for JPEG2000) are resolved correctly
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// Setup pdf.js worker using standard ESM URL which Vite automatically bundles along with WASM dependencies
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 export function Reader() {
   const { id } = useParams<{ id: string }>();
