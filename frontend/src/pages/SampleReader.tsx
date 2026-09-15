@@ -6,8 +6,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, ArrowLeft, ShoppingBag, Lock } from 'lucide-react';
 import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker to local self-hosted file
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Setup pdf.js worker to load from CDN so all dependencies (like WASM decoders for JPEG2000) are resolved correctly
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const MAX_SAMPLE_PAGES = 5;
 
