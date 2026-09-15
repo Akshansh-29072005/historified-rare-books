@@ -214,7 +214,7 @@ export function Admin() {
       const ctx = canvas.getContext('2d');
       
       if (ctx) {
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.8));
         if (blob) {
           // Send as a File object with filename
