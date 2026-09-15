@@ -195,7 +195,7 @@ export function Admin() {
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
     const totalPages = pdf.numPages;
 
-    const BATCH_SIZE = 20;
+    const BATCH_SIZE = 5;
     let currentBatch = new FormData();
     currentBatch.append('bookId', bookId);
     let batchCount = 0;

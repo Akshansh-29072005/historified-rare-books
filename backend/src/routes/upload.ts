@@ -88,24 +88,20 @@ upload.post('/pages', authMiddleware, adminMiddleware, async (c) => {
     if (!bookId) return c.json({ error: 'bookId required' }, 400)
     
     let uploadedCount = 0;
-    const uploadPromises = [];
 
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('page_') && value instanceof File) {
         const pageNumber = key.replace('page_', '');
         const r2Key = `image_books/${bookId}/${pageNumber}.webp`;
-        uploadPromises.push(
-          value.arrayBuffer().then(buffer => 
-            c.env.R2_BUCKET.put(r2Key, buffer, {
-              httpMetadata: { contentType: 'image/webp' }
-            })
-          )
-        );
+        const buffer = await value.arrayBuffer();
+        
+        await c.env.R2_BUCKET.put(r2Key, buffer, {
+          httpMetadata: { contentType: 'image/webp' }
+        });
+        
         uploadedCount++;
       }
     }
-    
-    await Promise.all(uploadPromises);
 
     return c.json({ success: true, uploadedCount, message: `Successfully uploaded ${uploadedCount} pages` })
   } catch (error) {

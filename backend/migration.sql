@@ -1,0 +1,2 @@
+ALTER TABLE books ADD COLUMN total_pages INTEGER;
+ALTER TABLE books ADD COLUMN is_image_based BOOLEAN DEFAULT 0;
