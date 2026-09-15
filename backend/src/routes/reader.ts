@@ -21,10 +21,28 @@ async function servePdfFromR2(
 ): Promise<Response> {
   const rangeHeader = c.req.header('Range')
 
-  // Fetch from R2 with optional range automatically handled by Cloudflare
-  let object = await c.env.R2_BUCKET.get(r2Key, {
-    range: c.req.raw.headers,
-  }) as R2ObjectBody | null
+  let r2Range: any = undefined
+  if (rangeHeader) {
+    const match = rangeHeader.match(/bytes=(\d+)?-(\d+)?/)
+    if (match) {
+      if (match[1] !== undefined && match[2] !== undefined) {
+        // e.g. bytes=0-100
+        r2Range = {
+          offset: parseInt(match[1], 10),
+          length: parseInt(match[2], 10) - parseInt(match[1], 10) + 1
+        }
+      } else if (match[1] !== undefined && match[2] === undefined) {
+        // e.g. bytes=100- (from offset to end)
+        r2Range = { offset: parseInt(match[1], 10) }
+      } else if (match[1] === undefined && match[2] !== undefined) {
+        // e.g. bytes=-100 (last 100 bytes)
+        r2Range = { suffix: parseInt(match[2], 10) }
+      }
+    }
+  }
+
+  // Fetch from R2 with optional range explicitly parsed
+  let object = await c.env.R2_BUCKET.get(r2Key, r2Range ? { range: r2Range } : undefined) as R2ObjectBody | null
 
   if (!object) {
     return c.json({ error: 'PDF file not found in storage' }, 404)
@@ -37,18 +55,14 @@ async function servePdfFromR2(
   headers.set('accept-ranges', 'bytes')
   headers.set('cache-control', cacheControl)
 
-  // If we requested a range and R2 fulfilled it (or we manually requested a range and got the object)
   const fulfilledRange = (object as any).range
-  if (rangeHeader && fulfilledRange) {
+  if (fulfilledRange && 'offset' in fulfilledRange && 'length' in fulfilledRange) {
     const size = (object as any).size || 0
-    if ('offset' in fulfilledRange && 'length' in fulfilledRange) {
-      headers.set('content-range', `bytes ${fulfilledRange.offset}-${fulfilledRange.offset + fulfilledRange.length - 1}/${size}`)
-      headers.set('content-length', String(fulfilledRange.length))
-    }
+    headers.set('content-range', `bytes ${fulfilledRange.offset}-${fulfilledRange.offset + fulfilledRange.length - 1}/${size}`)
+    headers.set('content-length', String(fulfilledRange.length))
     return new Response(object.body, { status: 206, headers })
   }
 
-  // Full response
   if ((object as any).size) {
     headers.set('content-length', String((object as any).size))
   }
@@ -88,7 +102,7 @@ reader.get('/:bookId/pdf', async (c) => {
 
   // Check purchase status (uses indexed column: user_id, book_id, status)
   const purchase = await c.env.DB.prepare(
-    'SELECT id FROM purchases WHERE user_id = ? AND book_id = ? AND status = ?'
+    'SELECT id FROM purchases WHERE user_id = ? AND book_id = ? AND UPPER(status) = ?'
   ).bind(user.id, bookId, 'COMPLETED').first()
 
   if (!purchase && user.role !== 'admin') {
