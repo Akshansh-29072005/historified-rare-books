@@ -212,9 +212,8 @@ export function Admin() {
       if (pdfFile) {
         setUploadStatusText('Uploading main PDF file...');
         setUploadProgress(25);
-        const pdfFormData = new FormData();
-        pdfFormData.append('file', pdfFile);
-        const pdfData = await api.uploadFile('/upload/pdf', pdfFormData);
+        const pdfExt = pdfFile.name.split('.').pop() || 'pdf';
+        const pdfData = await api.uploadRawFile('/upload/pdf', pdfFile, pdfExt);
         pdf_r2_key = pdfData.key || pdfData.pdf_r2_key;
 
         // 2. Auto-generate 5-page sample preview (~1.5 MB)
@@ -226,9 +225,8 @@ export function Admin() {
           setUploadStatusText('Uploading 5-page sample preview...');
           setUploadProgress(65);
           const sampleFile = new File([sampleBlob], `sample_${pdfFile.name}`, { type: 'application/pdf' });
-          const sampleFormData = new FormData();
-          sampleFormData.append('file', sampleFile);
-          const sampleData = await api.uploadFile('/upload/pdf', sampleFormData);
+          const sampleExt = sampleFile.name.split('.').pop() || 'pdf';
+          const sampleData = await api.uploadRawFile('/upload/pdf', sampleFile, sampleExt);
           sample_pdf_r2_key = sampleData.key || sampleData.pdf_r2_key;
           console.log('Sample PDF key generated & uploaded:', sample_pdf_r2_key);
         } catch (sampleErr) {
@@ -242,9 +240,8 @@ export function Admin() {
       if (coverFile) {
         setUploadStatusText('Uploading cover image...');
         setUploadProgress(80);
-        const coverFormData = new FormData();
-        coverFormData.append('file', coverFile);
-        const coverData = await api.uploadFile('/upload/cover', coverFormData);
+        const coverExt = coverFile.name.split('.').pop() || 'png';
+        const coverData = await api.uploadRawFile('/upload/cover', coverFile, coverExt);
         cover_url = coverData.url || coverData.cover_url;
       }
       
@@ -400,10 +397,8 @@ export function Admin() {
 
     try {
       setUploadingQr(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const uploadRes = await api.uploadFile('/upload/qr', formData);
+      const qrExt = file.name.split('.').pop() || 'png';
+      const uploadRes = await api.uploadRawFile('/upload/qr', file, qrExt);
       
       // Save setting
       await api.post('/settings', { upi_qr_code_url: uploadRes.url });

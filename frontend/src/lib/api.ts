@@ -66,6 +66,28 @@ export const api = {
     }
     return response.json();
   },
+
+  async uploadRawFile(endpoint: string, file: File | Blob, ext: string) {
+    const baseUrl = getApiBaseUrl();
+    const headers: Record<string, string> = {
+      'Content-Type': file.type || 'application/octet-stream',
+      'X-File-Ext': ext,
+    };
+    if (auth.currentUser) {
+      const token = await auth.currentUser.getIdToken();
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${baseUrl}${endpoint}`, {
+      method: 'PUT',
+      headers,
+      body: file,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.details || err.error || response.statusText);
+    }
+    return response.json();
+  },
   
   async put(endpoint: string, data: any) {
     const baseUrl = getApiBaseUrl();

@@ -25,21 +25,14 @@ upload.get('/cover/:filename', async (c) => {
   return new Response(object.body, { headers })
 })
 
-// Protected routes for uploading
-upload.post('/pdf', authMiddleware, adminMiddleware, async (c) => {
+// Protected routes for uploading (using PUT with raw body to stream directly to R2 and avoid 128MB memory limit)
+upload.put('/pdf', authMiddleware, adminMiddleware, async (c) => {
   try {
-    const body = await c.req.parseBody()
-    const file = body['file'] as File
-    
-    if (!file) {
-      return c.json({ error: 'No file provided' }, 400)
-    }
-
-    const ext = file.name.split('.').pop()
+    const ext = c.req.header('X-File-Ext') || 'pdf'
     const key = `pdfs/${crypto.randomUUID()}.${ext}`
     
-    await c.env.R2_BUCKET.put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type }
+    await c.env.R2_BUCKET.put(key, c.req.raw.body, {
+      httpMetadata: { contentType: 'application/pdf' }
     })
 
     return c.json({ key, pdf_r2_key: key, message: 'PDF uploaded successfully' })
@@ -48,21 +41,15 @@ upload.post('/pdf', authMiddleware, adminMiddleware, async (c) => {
   }
 })
 
-upload.post('/cover', authMiddleware, adminMiddleware, async (c) => {
+upload.put('/cover', authMiddleware, adminMiddleware, async (c) => {
   try {
-    const body = await c.req.parseBody()
-    const file = body['file'] as File
-    
-    if (!file) {
-      return c.json({ error: 'No file provided' }, 400)
-    }
-
-    const ext = file.name.split('.').pop()
+    const ext = c.req.header('X-File-Ext') || 'png'
+    const contentType = c.req.header('Content-Type') || 'image/png'
     const filename = `${crypto.randomUUID()}.${ext}`
     const key = `covers/${filename}`
     
-    await c.env.R2_BUCKET.put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type }
+    await c.env.R2_BUCKET.put(key, c.req.raw.body, {
+      httpMetadata: { contentType }
     })
 
     // Dynamic origin so staging uses staging domain and production uses production domain
@@ -75,21 +62,15 @@ upload.post('/cover', authMiddleware, adminMiddleware, async (c) => {
   }
 })
 
-upload.post('/qr', authMiddleware, adminMiddleware, async (c) => {
+upload.put('/qr', authMiddleware, adminMiddleware, async (c) => {
   try {
-    const body = await c.req.parseBody()
-    const file = body['file'] as File
-    
-    if (!file) {
-      return c.json({ error: 'No file provided' }, 400)
-    }
-
-    const ext = file.name.split('.').pop()
+    const ext = c.req.header('X-File-Ext') || 'png'
+    const contentType = c.req.header('Content-Type') || 'image/png'
     const filename = `${crypto.randomUUID()}.${ext}`
     const key = `covers/${filename}`
     
-    await c.env.R2_BUCKET.put(key, await file.arrayBuffer(), {
-      httpMetadata: { contentType: file.type }
+    await c.env.R2_BUCKET.put(key, c.req.raw.body, {
+      httpMetadata: { contentType }
     })
 
     const origin = new URL(c.req.url).origin
