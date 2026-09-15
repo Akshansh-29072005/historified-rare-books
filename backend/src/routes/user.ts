@@ -40,7 +40,7 @@ user.get('/purchases', async (c) => {
       SELECT b.id, b.title, b.author, b.cover_url, b.description, b.price, p.status as purchase_status, p.purchased_at
       FROM purchases p
       JOIN books b ON p.book_id = b.id
-      WHERE p.user_id = ? AND p.status = 'COMPLETED'
+      WHERE p.user_id = ? AND UPPER(p.status) = 'COMPLETED'
       ORDER BY p.purchased_at DESC
     `).bind(currentUser.id).all()
 
