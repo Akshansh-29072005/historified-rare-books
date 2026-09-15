@@ -9,7 +9,6 @@ export function ScamWarningBanner() {
       <div className="max-w-6xl mx-auto flex items-center gap-2.5">
         <span className="text-base shrink-0 select-none">⚠️</span>
         <p className="leading-normal font-medium">
-          <strong className="font-semibold text-red-900">Beware of Scams:</strong> Historified is the sole original owner of <em>Sachitra Rishi Anuvad</em> by Pandey Ram Naresh Prasad. Please do not buy from anyone else.
           <br /><br />
           <span className="text-red-800 font-semibold block mt-1">🚧 As we are upgrading our payment gateway, online checkouts will be live shortly. You can order manually via QR payments in the meantime!</span>
         </p>
