@@ -56,8 +56,8 @@ books.post('/', authMiddleware, adminMiddleware, async (c) => {
       const user = c.get('user');
       if (user && user.id) {
         await c.env.DB.prepare(
-          'INSERT INTO purchases (id, user_id, book_id, amount, status) VALUES (?, ?, ?, ?, ?)'
-        ).bind(crypto.randomUUID(), user.id, id, 0, 'completed').run();
+          'INSERT INTO purchases (id, user_id, book_id, cashfree_order_id, status) VALUES (?, ?, ?, ?, ?)'
+        ).bind(crypto.randomUUID(), user.id, id, 'admin_upload', 'completed').run();
       }
     } catch (grantErr) {
       console.error('Failed to auto-grant access to admin', grantErr);
