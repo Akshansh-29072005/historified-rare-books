@@ -89,8 +89,86 @@ reader.get('/:bookId/sample-pdf', async (c) => {
   return servePdfFromR2(c, book.sample_pdf_r2_key, 'public, max-age=86400')
 })
 
+// Public route for reading sample image pages (first 5 pages)
+reader.get('/:bookId/sample-pages/:pageNumber', async (c) => {
+  const bookId = c.req.param('bookId')
+  const pageNumber = parseInt(c.req.param('pageNumber'), 10)
+
+  if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > 5) {
+    return c.json({ error: 'Invalid sample page number. Only pages 1-5 are allowed.' }, 400)
+  }
+
+  const book = await c.env.DB.prepare(
+    'SELECT is_image_based FROM books WHERE id = ?'
+  ).bind(bookId).first<{ is_image_based: boolean }>()
+  
+  if (!book || !book.is_image_based) {
+    return c.json({ error: 'Book not found or not image-based' }, 404)
+  }
+
+  const r2Key = `image_books/${bookId}/${pageNumber}.webp`
+  const object = await c.env.R2_BUCKET.get(r2Key)
+  
+  if (!object) {
+    return c.json({ error: 'Page not found' }, 404)
+  }
+
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  headers.set('cache-control', 'public, max-age=86400')
+  headers.set('access-control-allow-origin', '*')
+  
+  return new Response(object.body, { headers })
+})
+
 // Protected routes require authentication
 reader.use('*', authMiddleware)
+
+reader.get('/:bookId/pages/:pageNumber', async (c) => {
+  const user = c.get('user')
+  if (!user) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+
+  const bookId = c.req.param('bookId')
+  const pageNumber = parseInt(c.req.param('pageNumber'), 10)
+
+  if (isNaN(pageNumber) || pageNumber < 1) {
+    return c.json({ error: 'Invalid page number' }, 400)
+  }
+
+  // Check purchase status
+  const purchase = await c.env.DB.prepare(
+    'SELECT id FROM purchases WHERE user_id = ? AND book_id = ? AND UPPER(status) = ?'
+  ).bind(user.id, bookId, 'COMPLETED').first()
+
+  if (!purchase && user.role !== 'admin') {
+    return c.json({ error: 'Purchase required to read this book' }, 403)
+  }
+
+  const book = await c.env.DB.prepare(
+    'SELECT is_image_based FROM books WHERE id = ?'
+  ).bind(bookId).first<{ is_image_based: boolean }>()
+  
+  if (!book || !book.is_image_based) {
+    return c.json({ error: 'Book not found or not image-based' }, 404)
+  }
+
+  const r2Key = `image_books/${bookId}/${pageNumber}.webp`
+  const object = await c.env.R2_BUCKET.get(r2Key)
+  
+  if (!object) {
+    return c.json({ error: 'Page not found' }, 404)
+  }
+
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  headers.set('cache-control', 'public, max-age=86400')
+  
+  return new Response(object.body, { headers })
+})
 
 reader.get('/:bookId/pdf', async (c) => {
   const user = c.get('user')

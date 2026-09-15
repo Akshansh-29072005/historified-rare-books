@@ -5,6 +5,9 @@ import { api } from '../lib/api';
 import { isAdminEmail } from '../config/admin';
 import { Ticket, Sparkles, Trash2, BookOpen, Plus, MessageSquare, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
+import { pdfjs } from 'react-pdf';
+
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 
 export function Admin() {
   const { user } = useAuth();
@@ -187,6 +190,51 @@ export function Admin() {
     return new Blob([samplePdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
   };
 
+  const processPdfToWebp = async (file: File, bookId: string): Promise<number> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = pdf.numPages;
+
+    const BATCH_SIZE = 20;
+    let currentBatch = new FormData();
+    currentBatch.append('bookId', bookId);
+    let batchCount = 0;
+
+    for (let i = 1; i <= totalPages; i++) {
+      setUploadStatusText(`Rendering page ${i} of ${totalPages} to image...`);
+      setUploadProgress(10 + Math.floor((i / totalPages) * 70));
+
+      const page = await pdf.getPage(i);
+      // Scale 2.0 provides good readability while keeping file size small
+      const viewport = page.getViewport({ scale: 2.0 });
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.8));
+        if (blob) {
+          // Send as a File object with filename
+          currentBatch.append(`page_${i}`, new File([blob], `${i}.webp`, { type: 'image/webp' }));
+          batchCount++;
+        }
+      }
+
+      if (batchCount >= BATCH_SIZE || i === totalPages) {
+        setUploadStatusText(`Uploading pages ${i - batchCount + 1}-${i}...`);
+        await api.uploadFile('/upload/pages', currentBatch);
+        currentBatch = new FormData();
+        currentBatch.append('bookId', bookId);
+        batchCount = 0;
+      }
+    }
+    
+    return totalPages;
+  };
+
   const handleBookSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !author || !price || !description) {
@@ -249,6 +297,9 @@ export function Admin() {
       setUploadProgress(90);
 
       // 4. Save or update book in D1 database
+      let bookIdForImages = editingBookId;
+
+      // 4. Save or update book in D1 database
       if (editingBookId) {
         await api.put(`/books/${editingBookId}`, {
           title,
@@ -260,7 +311,7 @@ export function Admin() {
           cover_url
         });
       } else {
-        await api.post('/books', {
+        const response = await api.post('/books', {
           title,
           author,
           price: Number(price),
@@ -269,6 +320,22 @@ export function Admin() {
           sample_pdf_r2_key,
           cover_url
         });
+        bookIdForImages = response.id;
+      }
+
+      // 5. Convert and Upload WebP Images (if a new PDF was selected)
+      if (pdfFile && bookIdForImages) {
+        try {
+          const totalPages = await processPdfToWebp(pdfFile, bookIdForImages);
+          // 6. Update book to mark it as image-based
+          setUploadStatusText('Finalizing image setup...');
+          await api.put(`/books/${bookIdForImages}`, {
+            is_image_based: true,
+            total_pages: totalPages
+          });
+        } catch (imgErr) {
+          console.error('Image conversion failed, but book is published with PDF fallback:', imgErr);
+        }
       }
 
       setUploadProgress(100);
@@ -301,6 +368,46 @@ export function Admin() {
         console.error('Failed to delete book', error);
         alert('Failed to delete book');
       }
+    }
+  };
+
+  const handleOptimizeBook = async (book: any) => {
+    try {
+      setUploading(true);
+      setUploadStatusText('Downloading PDF for optimization...');
+      setUploadProgress(10);
+      
+      const token = await user?.getIdToken();
+      // Use the actual staging or production API URL based on getApiBaseUrl logic from api.ts
+      // But we can just use the standard fetch against the api
+      const baseUrl = import.meta.env.VITE_API_URL || (window.location.hostname.includes('staging') ? 'https://backend-staging.akshanshkhairwar2.workers.dev/api' : 'https://backend.akshanshkhairwar2.workers.dev/api');
+      
+      const res = await fetch(`${baseUrl}/reader/${book.id}/pdf`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!res.ok) throw new Error('Failed to download PDF');
+      const blob = await res.blob();
+      const file = new File([blob], `${book.title}.pdf`, { type: 'application/pdf' });
+      
+      const totalPages = await processPdfToWebp(file, book.id);
+      
+      setUploadStatusText('Finalizing optimization...');
+      await api.put(`/books/${book.id}`, {
+        is_image_based: true,
+        total_pages: totalPages
+      });
+      
+      setUploadProgress(100);
+      setUploadStatusText('Optimization Complete!');
+      setTimeout(() => {
+        alert(`${book.title} has been optimized for fast reading!`);
+        setUploading(false);
+        loadBooks();
+      }, 500);
+    } catch (error: any) {
+      alert(`Optimization failed: ${error.message}`);
+      setUploading(false);
     }
   };
 
@@ -627,6 +734,15 @@ export function Admin() {
                         <p className="text-brown-500 text-xs mt-0.5">{book.author} · ₹{book.price}</p>
                       </div>
                       <div className="flex items-center gap-2">
+                        {!book.is_image_based && (
+                          <button 
+                            onClick={() => handleOptimizeBook(book)}
+                            disabled={uploading}
+                            className="text-white hover:bg-brown-900 text-xs font-medium bg-brown-700 px-3 py-1.5 rounded border border-brown-900 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            Optimize
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleEditClick(book)}
                           className="text-brown-700 hover:text-brown-900 text-xs font-medium bg-cream-50 hover:bg-cream-200 px-3 py-1.5 rounded border border-cream-300 transition-colors cursor-pointer"

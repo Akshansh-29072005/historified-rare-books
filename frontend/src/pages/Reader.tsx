@@ -20,6 +20,9 @@ export function Reader() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [bookmarks, setBookmarks] = useState<number[]>([]);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [isImageBased, setIsImageBased] = useState(false);
+  const [pdfUrlBase, setPdfUrlBase] = useState<string>('');
+  const [tokenForImage, setTokenForImage] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [loadingText, setLoadingText] = useState('Connecting to manuscript stream...');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -53,10 +56,26 @@ export function Reader() {
         if (id) {
           const token = await user.getIdToken();
           const baseUrl = getApiBaseUrl();
-          // Pass token via query param so we don't need custom headers (which breaks PDF.js range chunking)
-          const pdfUrl = `${baseUrl}/reader/${id}/pdf?token=${token}`;
           
-          setPdfDoc(pdfUrl);
+          // First check if it's image based
+          try {
+            const bookDetails = await api.get(`/books/${id}`);
+            if (bookDetails?.book?.is_image_based) {
+              setIsImageBased(true);
+              setNumPages(bookDetails.book.total_pages);
+              setPdfUrlBase(`${baseUrl}/reader/${id}/pages`);
+              setTokenForImage(token);
+              setLoading(false); // Image viewer doesn't need to parse a full document
+            } else {
+              // Legacy PDF mode
+              const pdfUrl = `${baseUrl}/reader/${id}/pdf?token=${token}`;
+              setPdfDoc(pdfUrl);
+            }
+          } catch (e) {
+            // Fallback to legacy if check fails
+            const pdfUrl = `${baseUrl}/reader/${id}/pdf?token=${token}`;
+            setPdfDoc(pdfUrl);
+          }
 
           const progress = await api.get(`/reader/${id}/progress`).catch(err => {
             console.error('Error fetching progress', err);
@@ -227,7 +246,36 @@ export function Reader() {
 
         {/* PDF Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {pdfDoc && (
+          {isImageBased ? (
+            <div className="flex justify-center items-center h-full relative">
+              <img 
+                src={`${pdfUrlBase}/${pageNumber}?token=${tokenForImage}`} 
+                alt={`Page ${pageNumber}`}
+                style={{ maxHeight: pageHeight }}
+                className="object-contain shadow-lg rounded-sm"
+                loading="eager"
+              />
+              {/* Preload next page silently */}
+              {pageNumber < (numPages || 1) && (
+                <img 
+                  src={`${pdfUrlBase}/${pageNumber + 1}?token=${tokenForImage}`} 
+                  className="hidden" 
+                  aria-hidden="true" 
+                />
+              )}
+              {/* Anti-Piracy DRM Canvas Watermark */}
+              {user?.email && (
+                <div 
+                  className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center overflow-hidden opacity-[0.14]"
+                  style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                >
+                  <div className="transform -rotate-45 text-brown-900 font-mono text-xs sm:text-sm font-bold whitespace-nowrap tracking-widest uppercase select-none">
+                    LICENSED TO {user.email} • HISTORIFIED RARE BOOKS
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : pdfDoc && (
             <div className="relative inline-block my-auto">
               <Document
                 file={pdfDoc}

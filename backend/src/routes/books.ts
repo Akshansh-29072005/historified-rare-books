@@ -40,7 +40,7 @@ books.get('/:id', async (c) => {
 // Create book (admin only)
 books.post('/', authMiddleware, adminMiddleware, async (c) => {
   const body = await c.req.json()
-  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key } = body
+  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key, total_pages, is_image_based } = body
   const keyToUse = pdf_r2_key || pdfKey || null
   const sampleKeyToUse = sample_pdf_r2_key || null
   
@@ -48,8 +48,8 @@ books.post('/', authMiddleware, adminMiddleware, async (c) => {
   
   try {
     await c.env.DB.prepare(
-      'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key, sample_pdf_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, title, author, description, price, cover_url || null, keyToUse, sampleKeyToUse).run()
+      'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key, sample_pdf_r2_key, total_pages, is_image_based) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, title, author, description, price, cover_url || null, keyToUse, sampleKeyToUse, total_pages || null, is_image_based ? 1 : 0).run()
     
     // Automatically grant access to the admin who uploaded it
     try {
@@ -74,13 +74,13 @@ books.put('/:id', authMiddleware, adminMiddleware, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json()
   
-  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key } = body
+  const { title, author, description, price, cover_url, pdf_r2_key, pdfKey, sample_pdf_r2_key, total_pages, is_image_based } = body
   const keyToUse = pdf_r2_key || pdfKey || null
   
   try {
     await c.env.DB.prepare(
-      'UPDATE books SET title = COALESCE(?, title), author = COALESCE(?, author), description = COALESCE(?, description), price = COALESCE(?, price), cover_url = COALESCE(?, cover_url), pdf_r2_key = COALESCE(?, pdf_r2_key), sample_pdf_r2_key = COALESCE(?, sample_pdf_r2_key) WHERE id = ?'
-    ).bind(title, author, description, price, cover_url, keyToUse, sample_pdf_r2_key || null, id).run()
+      'UPDATE books SET title = COALESCE(?, title), author = COALESCE(?, author), description = COALESCE(?, description), price = COALESCE(?, price), cover_url = COALESCE(?, cover_url), pdf_r2_key = COALESCE(?, pdf_r2_key), sample_pdf_r2_key = COALESCE(?, sample_pdf_r2_key), total_pages = COALESCE(?, total_pages), is_image_based = COALESCE(?, is_image_based) WHERE id = ?'
+    ).bind(title, author, description, price, cover_url, keyToUse, sample_pdf_r2_key || null, total_pages, is_image_based !== undefined ? (is_image_based ? 1 : 0) : null, id).run()
     
     return c.json({ message: 'Book updated successfully' })
   } catch (error) {

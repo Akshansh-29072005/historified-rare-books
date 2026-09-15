@@ -19,6 +19,8 @@ export function SampleReader() {
   const [book, setBook] = useState<any>(null);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isImageBased, setIsImageBased] = useState(false);
+  const [pdfUrlBase, setPdfUrlBase] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pageHeight, setPageHeight] = useState<number>(window.innerHeight - 110);
@@ -45,13 +47,19 @@ export function SampleReader() {
           try {
             const bookData = await api.get(`/books/${id}`);
             setBook(bookData.book);
+            
+            const baseUrl = getApiBaseUrl();
+            if (bookData.book?.is_image_based) {
+              setIsImageBased(true);
+              setPdfUrlBase(`${baseUrl}/reader/${id}/sample-pages`);
+            } else {
+              setPdfUrl(`${baseUrl}/reader/${id}/sample-pdf`);
+            }
           } catch (e) {
             console.error('Could not fetch book details', e);
+            const baseUrl = getApiBaseUrl();
+            setPdfUrl(`${baseUrl}/reader/${id}/sample-pdf`);
           }
-
-          const baseUrl = getApiBaseUrl();
-          const samplePdfUrl = `${baseUrl}/reader/${id}/sample-pdf`;
-          setPdfUrl(samplePdfUrl);
         }
       } catch (error: any) {
         console.error('Error initializing sample PDF', error);
@@ -173,7 +181,25 @@ export function SampleReader() {
 
         {/* PDF Document Canvas Container */}
         <div className="h-full w-full flex items-center justify-center overflow-auto p-1 sm:p-3 relative">
-          {pdfUrl && (
+          {isImageBased ? (
+            <div className="flex justify-center items-center h-full relative">
+              <img 
+                src={`${pdfUrlBase}/${pageNumber}`} 
+                alt={`Sample Page ${pageNumber}`}
+                style={{ maxHeight: pageHeight }}
+                className="object-contain shadow-lg rounded-sm"
+                loading="eager"
+              />
+              {/* Preload next page silently */}
+              {pageNumber < Math.min(MAX_SAMPLE_PAGES, book?.total_pages || MAX_SAMPLE_PAGES) && (
+                <img 
+                  src={`${pdfUrlBase}/${pageNumber + 1}`} 
+                  className="hidden" 
+                  aria-hidden="true" 
+                />
+              )}
+            </div>
+          ) : pdfUrl && (
             <Document
               file={pdfUrl}
               onLoadError={(err) => setErrorMsg(err.message || 'Error parsing sample PDF')}

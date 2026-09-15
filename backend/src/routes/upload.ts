@@ -81,5 +81,36 @@ upload.put('/qr', authMiddleware, adminMiddleware, async (c) => {
     return c.json({ error: 'Failed to upload QR Code', details: (error as Error).message }, 500)
   }
 })
+upload.post('/pages', authMiddleware, adminMiddleware, async (c) => {
+  try {
+    const body = await c.req.parseBody()
+    const bookId = body['bookId'] as string
+    if (!bookId) return c.json({ error: 'bookId required' }, 400)
+    
+    let uploadedCount = 0;
+    const uploadPromises = [];
+
+    for (const [key, value] of Object.entries(body)) {
+      if (key.startsWith('page_') && value instanceof File) {
+        const pageNumber = key.replace('page_', '');
+        const r2Key = `image_books/${bookId}/${pageNumber}.webp`;
+        uploadPromises.push(
+          value.arrayBuffer().then(buffer => 
+            c.env.R2_BUCKET.put(r2Key, buffer, {
+              httpMetadata: { contentType: 'image/webp' }
+            })
+          )
+        );
+        uploadedCount++;
+      }
+    }
+    
+    await Promise.all(uploadPromises);
+
+    return c.json({ success: true, uploadedCount, message: `Successfully uploaded ${uploadedCount} pages` })
+  } catch (error) {
+    return c.json({ error: 'Failed to upload pages', details: (error as Error).message }, 500)
+  }
+})
 
 export default upload

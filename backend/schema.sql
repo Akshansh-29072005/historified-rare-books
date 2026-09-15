@@ -15,7 +15,9 @@ CREATE TABLE books (
   price INTEGER,
   cover_url TEXT,
   pdf_r2_key TEXT,
-  sample_pdf_r2_key TEXT
+  sample_pdf_r2_key TEXT,
+  total_pages INTEGER,
+  is_image_based BOOLEAN DEFAULT 0
 );
 
 DROP TABLE IF EXISTS purchases;
