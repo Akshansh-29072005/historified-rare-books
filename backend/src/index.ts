@@ -19,7 +19,7 @@ app.use(
   cors({
     origin: (origin) => origin || '*',
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Authorization', 'Range', 'x-webhook-signature', 'x-webhook-timestamp'],
+    allowHeaders: ['Content-Type', 'Authorization', 'Range', 'x-webhook-signature', 'x-webhook-timestamp', 'x-file-ext'],
     exposeHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
     maxAge: 86400,
     credentials: true,
