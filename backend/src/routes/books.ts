@@ -49,7 +49,7 @@ books.post('/', authMiddleware, adminMiddleware, async (c) => {
   try {
     await c.env.DB.prepare(
       'INSERT INTO books (id, title, author, description, price, cover_url, pdf_r2_key, sample_pdf_r2_key, total_pages, is_image_based) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, title, author, description, price, cover_url || null, keyToUse, sampleKeyToUse, total_pages || null, is_image_based ? 1 : 0).run()
+    ).bind(id, title ?? null, author ?? null, description ?? null, price ?? null, cover_url ?? null, keyToUse ?? null, sampleKeyToUse ?? null, total_pages ?? null, is_image_based ? 1 : 0).run()
     
     // Automatically grant access to the admin who uploaded it
     try {
@@ -80,7 +80,18 @@ books.put('/:id', authMiddleware, adminMiddleware, async (c) => {
   try {
     await c.env.DB.prepare(
       'UPDATE books SET title = COALESCE(?, title), author = COALESCE(?, author), description = COALESCE(?, description), price = COALESCE(?, price), cover_url = COALESCE(?, cover_url), pdf_r2_key = COALESCE(?, pdf_r2_key), sample_pdf_r2_key = COALESCE(?, sample_pdf_r2_key), total_pages = COALESCE(?, total_pages), is_image_based = COALESCE(?, is_image_based) WHERE id = ?'
-    ).bind(title, author, description, price, cover_url, keyToUse, sample_pdf_r2_key || null, total_pages, is_image_based !== undefined ? (is_image_based ? 1 : 0) : null, id).run()
+    ).bind(
+      title ?? null, 
+      author ?? null, 
+      description ?? null, 
+      price ?? null, 
+      cover_url ?? null, 
+      keyToUse ?? null, 
+      sample_pdf_r2_key ?? null, 
+      total_pages ?? null, 
+      is_image_based !== undefined ? (is_image_based ? 1 : 0) : null, 
+      id
+    ).run()
     
     return c.json({ message: 'Book updated successfully' })
   } catch (error) {
