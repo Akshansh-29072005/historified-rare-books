@@ -6,11 +6,9 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { ChevronLeft, ChevronRight, ArrowLeft, ShoppingBag, Lock } from 'lucide-react';
 import { api, getApiBaseUrl } from '../lib/api';
 
-// Setup pdf.js worker using standard ESM URL which Vite automatically bundles along with WASM dependencies
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// Setup pdf.js worker to point to the statically copied file
+// This ensures that the worker and its WASM dependencies are served from the same directory without Vite bundler mangling
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdfjs/pdf.worker.min.mjs';
 
 const MAX_SAMPLE_PAGES = 5;
 
